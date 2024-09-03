@@ -1,11 +1,13 @@
 import React from 'react';
 
-function InputField({ type = 'text', placeholder, style }) {
+function InputField({ value, onChange, type = "text", placeholder, style }) {
   return (
     <input
       type={type}
+      value={value}
+      onChange={onChange}
       placeholder={placeholder}
-      style={{ ...styles.input, ...style }}
+      style={style}
     />
   );
 }
