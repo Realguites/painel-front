@@ -1,24 +1,22 @@
 import logo from './logo.svg';
 import './App.css';
+import UserRegistration from './telas/UserRegistration';
+
+const eventSource = new EventSource('http://localhost:8080/stream-sse');
+ 
+
+eventSource.onmessage = function(event) {
+    console.log('Nova mensagem:', event.data);
+    // Atualize o front-end aqui com o evento recebido
+};
+
+eventSource.onerror = function(event) {
+    console.error('Erro no SSE:', event);
+};
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <UserRegistration/>
   );
 }
 
