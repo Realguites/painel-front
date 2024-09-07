@@ -7,7 +7,7 @@ function InputField({ value, onChange, type = "text", placeholder, style }) {
       value={value}
       onChange={onChange}
       placeholder={placeholder}
-      style={style}
+      style={{ ...styles.input, ...style }}
     />
   );
 }

@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-
 import InputField from '../components/InputField';
-import SelectField from '../components/SelectField';
 import CheckboxField from '../components/CheckboxField';
 import Button from '../components/Button';
-import SideMenu from '../components/SideMenu';
+import Header from '../others/Header';
+
 
 function UserRegistration() {
   const [nome, setNome] = useState('');
@@ -41,56 +40,61 @@ function UserRegistration() {
   };
 
   return (
-    <div style={styles.container}>
-      <SideMenu />
-        <div style={{ marginLeft: '50px', padding: '20px' }}>
-          {/* Conteúdo da aplicação */}
-          <h1>Bem-vindo à aplicação</h1>
-          <p>Este é um exemplo de conteúdo.</p>
+    <div>
+       <Header/>
+      <div style={styles.container}>
+
+        
+          <div style={{ marginLeft: '50px', padding: '20px' }}>
+            {/* Conteúdo da aplicação */}
+            <h1>Bem-vindo à aplicação</h1>
+            <p>Este é um exemplo de conteúdo.</p>
+          </div>
+        <h2 style={styles.header}>BATATA</h2>
+        <h4 style={styles.subHeader}>INSCREVA-SE PARA CONTINUAR</h4>
+
+        <div style={styles.inputGroup}>
+          <InputField 
+            value={nome} 
+            onChange={(e) => setNome(e.target.value)}
+            placeholder="Nome" 
+            style={styles.inputHalf} 
+          />
+          <InputField 
+            value={sobrenome}
+            onChange={(e) => setSobrenome(e.target.value)}
+            placeholder="Sobrenome" 
+            style={styles.inputHalf} 
+          />
         </div>
-      <h2 style={styles.header}>BATATA</h2>
-      <h4 style={styles.subHeader}>INSCREVA-SE PARA CONTINUAR</h4>
-      
-      <div style={styles.inputGroup}>
+
         <InputField 
-          value={nome} 
-          onChange={(e) => setNome(e.target.value)}
-          placeholder="Nome" 
-          style={styles.inputHalf} 
+          value={email} 
+          onChange={(e) => setEmail(e.target.value)}
+          type="email" 
+          placeholder="Endereço de email" 
         />
         <InputField 
-          value={sobrenome}
-          onChange={(e) => setSobrenome(e.target.value)}
-          placeholder="Sobrenome" 
-          style={styles.inputHalf} 
+          value={senha}
+          onChange={(e) => setSenha(e.target.value)}
+          type="password" 
+          placeholder="Senha" 
         />
+
+        <CheckboxField 
+          id="terms" 
+          label="Li e concordo com os" 
+          linkText="Termos de uso e a Política de privacidade."
+          linkHref="#"
+          checked={aceitaTermos}
+          onChange={(e) => setAceitaTermos(e.target.checked)}
+        />
+
+        <div style={styles.inputGroup}>
+          <Button label="Inscrever-se" onClick={handleSubmit} />
+        </div>
       </div>
       
-      <InputField 
-        value={email} 
-        onChange={(e) => setEmail(e.target.value)}
-        type="email" 
-        placeholder="Endereço de email" 
-      />
-      <InputField 
-        value={senha}
-        onChange={(e) => setSenha(e.target.value)}
-        type="password" 
-        placeholder="Senha" 
-      />
-      
-      <CheckboxField 
-        id="terms" 
-        label="Li e concordo com os" 
-        linkText="Termos de uso e a Política de privacidade."
-        linkHref="#"
-        checked={aceitaTermos}
-        onChange={(e) => setAceitaTermos(e.target.checked)}
-      />
-      
-      <div style={styles.inputGroup}>
-        <Button label="Inscrever-se" onClick={handleSubmit} />
-      </div>
     </div>
   );
 }

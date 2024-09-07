@@ -1,6 +1,8 @@
-import logo from './logo.svg';
-import './App.css';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+import LoginPage from './telas/LoginPage';
 import UserRegistration from './telas/UserRegistration';
+
 
 const eventSource = new EventSource('http://localhost:8080/stream-sse');
  
@@ -16,7 +18,14 @@ eventSource.onerror = function(event) {
 
 function App() {
   return (
-    <UserRegistration/>
+    <BrowserRouter>
+      <Routes>
+        <Route index element={<UserRegistration />} />
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/login" element={<LoginPage />} />
+      </Routes>
+    </BrowserRouter>
+
   );
 }
 

@@ -41,8 +41,14 @@ const styles = {
     color: '#fff',
     transition: 'width 0.3s',
     overflow: 'hidden',
+    zIndex: 1000, // Garante que o menu esteja acima de outros elementos
     '@media (max-width: 768px)': {
-      width: '0px',
+      width: '100%',
+      height: 'auto',
+      top: '0',
+      left: '0',
+      position: 'fixed',
+      zIndex: 1000, // Garante que o menu fique acima do header
     },
   },
   menuExpanded: {
@@ -54,12 +60,14 @@ const styles = {
     backgroundColor: '#333',
     color: '#fff',
     transition: 'width 0.3s',
+    zIndex: 1000, // Garante que o menu esteja acima de outros elementos
     '@media (max-width: 768px)': {
       width: '100%',
+      height: 'auto',
       top: '0',
       left: '0',
-      height: 'auto',
       position: 'fixed',
+      zIndex: 1000, // Garante que o menu fique acima do header
     },
   },
   toggleButton: {
@@ -80,16 +88,18 @@ const styles = {
   },
   menuList: {
     listStyleType: 'none',
-    padding: 0,
-    margin: 0,
-    display: 'flex',
-    flexDirection: 'column',
+    padding: '0',
+    margin: '0',
   },
   menuItem: {
-    padding: '10px 20px',
-    borderBottom: '1px solid #555',
+    padding: '10px',
+    borderBottom: '1px solid #444',
     display: 'flex',
     alignItems: 'center',
+    color: '#fff',
+  },
+  icon: {
+    marginRight: '10px',
   },
 };
 
