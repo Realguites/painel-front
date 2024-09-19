@@ -38,6 +38,7 @@ function UserRegistration() {
     setSenha('');
     setAceitaTermos(false);
   };
+  
 
   return (
     <div>
@@ -45,14 +46,9 @@ function UserRegistration() {
       <div style={styles.container}>
 
         
-          <div style={{ marginLeft: '50px', padding: '20px' }}>
-            {/* Conteúdo da aplicação */}
-            <h1>Bem-vindo à aplicação</h1>
-            <p>Este é um exemplo de conteúdo.</p>
-          </div>
-        <h2 style={styles.header}>BATATA</h2>
-        <h4 style={styles.subHeader}>INSCREVA-SE PARA CONTINUAR</h4>
-
+        <div style={{ marginLeft: '1x', padding: '1px' }}>
+          <h1>Cadastro de usuários</h1>
+        </div>
         <div style={styles.inputGroup}>
           <InputField 
             value={nome} 
@@ -80,16 +76,6 @@ function UserRegistration() {
           type="password" 
           placeholder="Senha" 
         />
-
-        <CheckboxField 
-          id="terms" 
-          label="Li e concordo com os" 
-          linkText="Termos de uso e a Política de privacidade."
-          linkHref="#"
-          checked={aceitaTermos}
-          onChange={(e) => setAceitaTermos(e.target.checked)}
-        />
-
         <div style={styles.inputGroup}>
           <Button label="Inscrever-se" onClick={handleSubmit} />
         </div>

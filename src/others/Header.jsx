@@ -11,13 +11,5 @@ const Header = () => {
   );
 };
 
-const styles = {
-  header: {
-    width: '100%', // Ocupa toda a largura
-    padding: '10px 20px',
-    borderBottom: '1px solid #ccc',
-    textAlign: 'center',
-  },
-};
 
 export default Header;
