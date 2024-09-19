@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import LoginPage from './telas/LoginPage';
 import UserRegistration from './telas/UserRegistration';
+import CadastroEmpresa from './telas/CadastroEmpresa';
 
 
 const eventSource = new EventSource('http://localhost:8080/stream-sse');
@@ -23,6 +24,7 @@ function App() {
         <Route index element={<UserRegistration />} />
         <Route path="/" element={<LoginPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/cadastroEmpresa" element={<CadastroEmpresa />} />
       </Routes>
     </BrowserRouter>
 
