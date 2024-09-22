@@ -1,89 +1,104 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import InputField from '../components/InputField';
-import CheckboxField from '../components/CheckboxField';
 import Button from '../components/Button';
 import Header from '../others/Header';
 import { FaEdit, FaTrash } from 'react-icons/fa';
+import config from '../config/config';
+import { decodeToken } from "react-jwt";
 
-function UserRegistration() {
-  const [nome, setNome] = useState('');
-  const [sobrenome, setSobrenome] = useState('');
-  const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
-  const [aceitaTermos, setAceitaTermos] = useState(false);
-  const [users, setUsers] = useState([]); // Estado para armazenar os usuários
-  const [isEditing, setIsEditing] = useState(false); // Estado para verificar se está editando
-  const [editUserId, setEditUserId] = useState(null); // Armazena o ID do usuário que está sendo editado
 
-  // Função para buscar os usuários da base de dados
-  const fetchUsers = async () => {
+function EmpresaRegistration() {
+  const [cnpj, setCnpj] = useState('');
+  const [nomeFantasia, setNomeFantasia] = useState('');
+  const [razaoSocial, setRazaoSocial] = useState('');
+  const [ddd, setDdd] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [nomeContato, setNomeContato] = useState('');
+  const [tipoJuridico, setTipoJuridico] = useState('');
+  const [empresas, setEmpresas] = useState([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editEmpresaId, setEditEmpresaId] = useState(null);
+  const [credentials, setCredentials] = useState(null);
+  const { API_BASE_URL } = config;
+
+  const fetchEmpresas = async () => {
     try {
-      const response = await axios.get('http://localhost:8080/users'); // Substitua pelo endpoint correto
-      setUsers(response.data);
+      const response = await axios.get(`${API_BASE_URL}/empresa`, credentials);
+      setEmpresas(response.data);
     } catch (error) {
-      console.error('Erro ao buscar usuários:', error);
+      console.error('Erro ao buscar empresas:', error);
     }
   };
 
-  // UseEffect para buscar os dados quando a página carregar
+  const [canRender, setCanRender] = useState(false);
+
   useEffect(() => {
-    fetchUsers();
+    const token = localStorage.getItem("jwtToken");
+    if (token === null || typeof token === "undefined") {
+      window.location.href = "/login"
+    }
+    setCredentials(`Àuthorization: Bearer${token}`)
+
+  }, [])
+
+  useEffect(() => {
+    fetchEmpresas();
   }, []);
 
-  // Função para enviar ou atualizar os dados
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const userData = {
-      nome,
-      sobrenome,
-      email,
-      senha,
-      aceitaTermos,
+    const empresaData = {
+      cnpj,
+      nomeFantasia,
+      razaoSocial,
+      ddd,
+      telefone,
+      nomeContato,
+      tipoJuridico,
     };
 
     try {
       if (isEditing) {
-        // Se estiver editando, fazer PUT
-        await axios.put(`http://localhost:8080/users/${editUserId}`, userData); // Substitua pelo endpoint correto
+        await axios.put(`${API_BASE_URL}/empresa/${editEmpresaId}`, empresaData, credentials);
         setIsEditing(false);
-        setEditUserId(null);
+        setEditEmpresaId(null);
       } else {
-        // Se não, fazer POST
-        await axios.post('http://localhost:8080/users', userData); // Substitua pelo endpoint correto
+        await axios.post(`${API_BASE_URL}/empresa`, empresaData, credentials);
       }
-      fetchUsers(); // Atualizar a tabela após o registro/edição
+      fetchEmpresas();
     } catch (error) {
-      console.error('Erro ao registrar ou editar usuário:', error);
+      console.error('Erro ao registrar ou editar empresa:', error);
     }
 
-    // Resetar os campos após o envio
-    setNome('');
-    setSobrenome('');
-    setEmail('');
-    setSenha('');
-    setAceitaTermos(false);
+    setCnpj('');
+    setNomeFantasia('');
+    setRazaoSocial('');
+    setDdd('');
+    setTelefone('');
+    setNomeContato('');
+    setTipoJuridico('');
   };
 
-  // Função para editar usuário
-  const handleEdit = (user) => {
-    setNome(user.nome);
-    setSobrenome(user.sobrenome);
-    setEmail(user.email);
-    setSenha(user.senha); // Apenas para simular, a senha não seria retornada assim normalmente
-    setAceitaTermos(user.aceitaTermos);
+  const handleEdit = (empresa) => {
+    setCnpj(empresa.cnpj);
+    setNomeFantasia(empresa.nomeFantasia);
+    setRazaoSocial(empresa.razaoSocial);
+    setDdd(empresa.ddd);
+    setTelefone(empresa.telefone);
+    setNomeContato(empresa.nomeContato);
+    setTipoJuridico(empresa.tipoJuridico);
     setIsEditing(true);
-    setEditUserId(user.id);
+    setEditEmpresaId(empresa.id);
   };
 
-  // Função para excluir usuário
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`http://localhost:8080/users/${id}`); // Substitua pelo endpoint correto
-      fetchUsers(); // Atualizar a tabela após a exclusão
+      await axios.delete(`${API_BASE_URL}/empresa/${id}`, credentials);
+      fetchEmpresas();
     } catch (error) {
-      console.error('Erro ao excluir usuário:', error);
+      console.error('Erro ao excluir empresa:', error);
     }
   };
 
@@ -91,77 +106,102 @@ function UserRegistration() {
     <div>
       <Header />
       <div style={styles.container}>
-        <h2 style={styles.header}>{isEditing ? 'Editar Usuário' : 'Cadastro de Usuário'}</h2>
+        <h2 style={styles.header}>{isEditing ? 'Editar Empresa' : 'Cadastro de Empresa'}</h2>
         <h4 style={styles.subHeader}>Preencha os dados abaixo para {isEditing ? 'editar' : 'cadastrar'}</h4>
 
         <div style={styles.inputGroup}>
           <InputField 
-            value={nome} 
-            onChange={(e) => setNome(e.target.value)}
-            placeholder="Nome" 
-            style={styles.inputHalf} 
+            value={cnpj} 
+            onChange={(e) => setCnpj(e.target.value)}
+            placeholder="CNPJ" 
+            style={{ ...styles.inputField, width: '60%' }} // CNPJ com largura maior
           />
+          
           <InputField 
-            value={sobrenome}
-            onChange={(e) => setSobrenome(e.target.value)}
-            placeholder="Sobrenome" 
-            style={styles.inputHalf} 
+            value={nomeFantasia}
+            onChange={(e) => setNomeFantasia(e.target.value)}
+            placeholder="Nome Fantasia" 
+            style={{ ...styles.inputField, width: '38%' }} // Nome Fantasia com largura menor
           />
         </div>
-
-        <InputField 
-          value={email} 
-          onChange={(e) => setEmail(e.target.value)}
-          type="email" 
-          placeholder="Endereço de email" 
-        />
-        <InputField 
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
-          type="password" 
-          placeholder="Senha" 
-        />
-
-        <CheckboxField 
-          id="terms" 
-          label="Li e concordo com os" 
-          linkText="Termos de uso e a Política de privacidade."
-          linkHref="#"
-          checked={aceitaTermos}
-          onChange={(e) => setAceitaTermos(e.target.checked)}
-        />
 
         <div style={styles.inputGroup}>
-          <Button label={isEditing ? 'Salvar Alterações' : 'Inscrever-se'} onClick={handleSubmit} />
+          <InputField 
+            value={razaoSocial} 
+            onChange={(e) => setRazaoSocial(e.target.value)}
+            placeholder="Razão Social" 
+            style={{ ...styles.inputField, width: '70%' }} // Razão Social com largura maior
+          />
+          <InputField 
+            value={ddd}
+            onChange={(e) => setDdd(e.target.value)}
+            placeholder="DDD" 
+            style={{ ...styles.inputField, width: '28%' }} // DDD com largura menor
+          />
         </div>
 
-        {/* Tabela para exibir os usuários */}
-        {users.length > 0 && (
+        <div style={styles.inputGroup}>
+          <InputField 
+            value={telefone} 
+            onChange={(e) => setTelefone(e.target.value)}
+            placeholder="Telefone" 
+            style={{ ...styles.inputField, width: '48%' }} // Telefone com largura intermediária
+          />
+          <InputField 
+            value={nomeContato}
+            onChange={(e) => setNomeContato(e.target.value)}
+            placeholder="Nome do Contato" 
+            style={{ ...styles.inputField, width: '48%' }} // Nome do Contato com largura igual
+          />
+        </div>
+
+        <div style={styles.inputGroup}>
+          <select
+            value={tipoJuridico}
+            onChange={(e) => setTipoJuridico(e.target.value)}
+            style={{ ...styles.inputField, width: '100%' }} // Select de tipo jurídico com largura cheia
+          >
+            <option value="">Selecione o Tipo Jurídico</option>
+            <option value="SA">Sociedade Anônima (SA)</option>
+            <option value="LTDA">Sociedade Limitada (LTDA)</option>
+            <option value="EIRELI">Empresa Individual de Responsabilidade Limitada (EIRELI)</option>
+            <option value="MEI">Microempreendedor Individual (MEI)</option>
+            <option value="OUTROS">Outros</option>
+          </select>
+        </div>
+
+        <div style={styles.inputGroup}>
+          <Button label={isEditing ? 'Salvar Alterações' : 'Cadastrar Empresa'} onClick={handleSubmit} />
+        </div>
+
+        {empresas.length > 0 && (
           <>
-            <h3 style={styles.tableHeader}>Usuários Registrados</h3>
+            <h3 style={styles.tableHeader}>Empresas Registradas</h3>
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th>Nome</th>
-                  <th>Sobrenome</th>
-                  <th>Email</th>
+                  <th>CNPJ</th>
+                  <th>Nome Fantasia</th>
+                  <th>Razão Social</th>
+                  <th>Telefone</th>
                   <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
-                  <tr key={user.id}>
-                    <td>{user.nome}</td>
-                    <td>{user.sobrenome}</td>
-                    <td>{user.email}</td>
+                {empresas.map((empresa) => (
+                  <tr key={empresa.id}>
+                    <td>{empresa.cnpj}</td>
+                    <td>{empresa.nomeFantasia}</td>
+                    <td>{empresa.razaoSocial}</td>
+                    <td>{empresa.telefone}</td>
                     <td>
                       <FaEdit 
-                        onClick={() => handleEdit(user)} 
+                        onClick={() => handleEdit(empresa)} 
                         style={styles.icon} 
                         title="Editar" 
                       />
                       <FaTrash 
-                        onClick={() => handleDelete(user.id)} 
+                        onClick={() => handleDelete(empresa.id)} 
                         style={styles.icon} 
                         title="Excluir" 
                       />
@@ -197,8 +237,9 @@ const styles = {
     justifyContent: 'space-between',
     marginBottom: '10px',
   },
-  inputHalf: {
-    width: '48%',
+  inputField: {
+    padding: '8px',
+    fontSize: '14px',
   },
   tableHeader: {
     marginTop: '30px',
@@ -226,4 +267,4 @@ const styles = {
   },
 };
 
-export default UserRegistration;
+export default EmpresaRegistration;

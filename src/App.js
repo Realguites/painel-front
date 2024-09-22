@@ -1,13 +1,13 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import React from 'react';
 
 import LoginPage from './telas/LoginPage';
 import UserRegistration from './telas/UserRegistration';
 import CadastroEmpresa from './telas/CadastroEmpresa';
-import UserRegistration from './telas/CadastroEmpresa';
-import LoginPage from  './telas/Login';
+import HomePage from './telas/HomePage';
 
 
-const eventSource = new EventSource('http://localhost:8080/stream-sse');
+/*const eventSource = new EventSource('http://localhost:8080/stream-sse');
  
 
 eventSource.onmessage = function(event) {
@@ -17,7 +17,7 @@ eventSource.onmessage = function(event) {
 
 eventSource.onerror = function(event) {
     console.error('Erro no SSE:', event);
-};
+};*/
 
 function App() {
   return (
@@ -27,7 +27,7 @@ function App() {
         <Route path="/" element={<LoginPage />} />
         <Route path="/usuarios" element={<UserRegistration />} />
         <Route path="/home" element={<HomePage />} />
-        <Route path="/cadastroEmpresa" element={<CadastroEmpresa />} />
+        <Route path="/cadastroEmpresas" element={<CadastroEmpresa />} />
       </Routes>
     </BrowserRouter>
 

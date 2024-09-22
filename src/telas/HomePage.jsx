@@ -50,7 +50,7 @@ const Home = () => {
             <p>Selecione uma das opções abaixo para começar:</p>
           </WelcomeMessage>
           <CardsWrapper>
-            <Card style={{ backgroundColor: '#ff6b6b' }} onClick={() => handleCardClick('Home')}>
+            <Card style={{ backgroundColor: '#ff6b6b' }} onClick={() => window.location.href = "/cadastroEmpresas"}>
               <IoMdBusiness  size={40} color="#fff" />
               <p>Empresas</p>
             </Card>
