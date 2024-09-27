@@ -1,0 +1,122 @@
+/* Estilos para a tabela */
+.container {
+  width: 100%;
+  margin: 0 auto;
+}
+
+.search-box {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.responsive-table {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.table-header,
+.table-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #ccc;
+}
+
+.table-header {
+  font-weight: bold;
+  background-color: #f4f4f4;
+}
+
+.col {
+  flex: 1;
+  white-space: nowrap; /* Impede que o conteúdo quebre para a próxima linha */
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.col-actions {
+  display: flex;
+  justify-content: space-evenly;
+}
+
+.icon {
+  cursor: pointer;
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+}
+
+.page-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.page-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 14px;
+}
+
+/* Estilos para transformar tabela em cards em telas menores */
+@media (max-width: 768px) {
+  .table-header {
+    display: none; /* Esconde o cabeçalho da tabela em telas menores */
+  }
+
+  .table-row {
+    display: block;
+    border: 1px solid #ccc;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: #fff;
+  }
+
+  .col {
+    display: block;
+    padding: 5px 0;
+    white-space: normal; /* Permite que o conteúdo quebre em múltiplas linhas nos cards */
+    overflow: visible;
+  }
+
+  .col::before {
+    content: attr(data-label); /* Mostra o nome da coluna antes do conteúdo */
+    font-weight: bold;
+    margin-right: 10px;
+    display: inline-block;
+  }
+
+  .col-actions {
+    justify-content: flex-start;
+  }
+}
+
+/* Ajustes adicionais para telas ainda menores */
+@media (max-width: 480px) {
+  .search-box {
+    font-size: 14px;
+    padding: 8px;
+  }
+
+  .page-btn {
+    padding: 5px 8px;
+  }
+
+  .page-info {
+    font-size: 12px;
+  }
+}

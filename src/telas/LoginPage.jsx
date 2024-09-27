@@ -41,7 +41,7 @@ function LoginPage() {
       if (response.ok) {
         const data = await response.json()
         const userData = decodeToken(data.token)
-        localStorage.setItem("jwtToken", JSON.stringify(data.token));
+        localStorage.setItem("jwtToken", JSON.stringify(data.token).slice(1,-1));//remove as asas duplas geradas pelo json na API
         setResponseMessage(`Usuário ${userData?.nomeUsuario} logado com sucesso!`);
         window.location.href = "/home"
       } else if (response.status === 401){
