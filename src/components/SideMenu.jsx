@@ -1,27 +1,40 @@
-import React, { useState } from 'react';
-import { FaHome, FaUserAlt, FaCog, FaSignOutAlt } from 'react-icons/fa'; // Adicionei o ícone de logout
-import { useNavigate } from 'react-router-dom'; // Para navegação
+import React, { useState, useEffect } from 'react';
+import { FaHome, FaUserAlt, FaCog, FaSignOutAlt } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 
 function SideMenu() {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const navigate = useNavigate(); // Hook de navegação
+  const [isExpanded, setIsExpanded] = useState(window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const navigate = useNavigate(); 
+
+  // Atualiza o estado isMobile e expande/recolhe o menu conforme o tamanho da tela
+  useEffect(() => {
+    const handleResize = () => {
+      const isNowMobile = window.innerWidth <= 768;
+      setIsMobile(isNowMobile);
+      setIsExpanded(isNowMobile); // Expande automaticamente se for mobile, recolhe se for desktop
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Cleanup listener ao desmontar o componente
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
 
   const toggleMenu = () => {
     setIsExpanded(!isExpanded);
   };
 
-  // Detecta a largura da janela para aplicar a classe correta
-  const isMobile = window.innerWidth <= 768;
-
-  // Função de logout
   const handleLogout = () => {
-    // Limpe o token ou qualquer dado relacionado ao login aqui
-    // Exemplo: localStorage.removeItem('token');
-    navigate('/login'); // Redireciona para a página de login
+    navigate('/login');
   };
 
   return (
-    <div style={isMobile ? (isExpanded ? styles.menuExpandedMobile : styles.menuCollapsedMobile) : (isExpanded ? styles.menuExpanded : styles.menuCollapsed)}>
+    <div
+      style={isMobile ? (isExpanded ? styles.menuExpandedMobile : styles.menuCollapsedMobile) : (isExpanded ? styles.menuExpanded : styles.menuCollapsed)}
+    >
       <button onClick={toggleMenu} style={styles.toggleButton}>
         {isExpanded ? '←' : <span style={styles.hamburgerIcon}>&#9776;</span>}
       </button>
@@ -36,12 +49,11 @@ function SideMenu() {
           <li style={styles.menuItem} onClick={() => navigate('/settings')}>
             <FaCog style={styles.icon} /> {isMobile ? null : 'Settings'}
           </li>
-          <li style={styles.menuItem} onClick={() => handleLogout}>
+          <li style={styles.menuItem} onClick={handleLogout}>
             <FaSignOutAlt style={styles.icon} /> Logout
           </li>
         </ul>
       )}
-     
     </div>
   );
 }
@@ -129,7 +141,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     color: '#fff',
-    cursor: 'pointer', // Adiciona cursor pointer para itens clicáveis
+    cursor: 'pointer',
   },
   icon: {
     marginRight: '10px',
