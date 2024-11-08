@@ -5,6 +5,7 @@ import LoginPage from './telas/LoginPage';
 import UserRegistration from './telas/UserRegistration';
 import CadastroEmpresa from './telas/CadastroEmpresa';
 import HomePage from './telas/HomePage';
+import Chamada from './telas/Chamada';
 
 
 /*const eventSource = new EventSource('http://localhost:8080/stream-sse');
@@ -28,6 +29,7 @@ function App() {
         <Route path="/usuarios" element={<UserRegistration />} />
         <Route path="/home" element={<HomePage />} />
         <Route path="/cadastroEmpresas" element={<CadastroEmpresa />} />
+        <Route path="/chamada" element={<Chamada />} />
       </Routes>
     </BrowserRouter>
 

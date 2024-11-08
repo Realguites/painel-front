@@ -11,6 +11,7 @@ function UserRegistration() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [repetirSenha, setRepetirSenha] = useState('');
+  const [guiche, setGuiche] = useState('');
   const [tipoUsuario, setTipoUsuario] = useState('');
   const [usuarios, setUsuarios] = useState([]);
   const [empresas, setEmpresas] = useState([]);
@@ -98,6 +99,7 @@ function UserRegistration() {
     if (!senha) errors.senha = 'Senha é obrigatória';
     if (senha !== repetirSenha) errors.repetirSenha = 'As senhas não coincidem';
     if (!tipoUsuario) errors.tipoUsuario = 'Tipo de Usuário é obrigatório';
+    if (!guiche) errors.guiche = 'Guichê é obrigatório';
 
     setErrors(errors);
     return Object.keys(errors).length === 0;
@@ -113,7 +115,8 @@ function UserRegistration() {
       email,
       senha,
       tipoUsuario,
-      empresa:{ idEmpresa: selectedEmpresa}
+      empresa:{ idEmpresa: selectedEmpresa},
+      guiche
     };
 
     try {
@@ -149,6 +152,7 @@ function UserRegistration() {
     setRepetirSenha('');
     setTipoUsuario('');
     setSelectedEmpresa('');
+    setGuiche('');
     setErrors({});
   };
 
@@ -158,6 +162,7 @@ function UserRegistration() {
     setSenha(usuario.senha);
     setRepetirSenha(usuario.senha); // Preenche o campo de repetir senha com a senha atual
     setTipoUsuario(usuario.tipoUsuario);
+    setGuiche(usuario.guiche)
     setIsEditing(true);
     setEditUserId(usuario.idUsuario);
   };
@@ -189,6 +194,7 @@ function UserRegistration() {
     setRepetirSenha('');
     setTipoUsuario('');
     setSelectedEmpresa('');
+    setGuiche('');
     setErrors({});
   };
 
@@ -197,6 +203,7 @@ function UserRegistration() {
     { header: 'Nome', accessor: 'nome' },
     { header: 'Email', accessor: 'email' },
     { header: 'Tipo de Usuário', accessor: 'tipoUsuario' },
+    { header: 'Guichê', accessor: 'guiche' },
 
   ];
 
@@ -280,6 +287,17 @@ function UserRegistration() {
           <option value="FUNCIONARIO">Funcionário</option>
         </select>
         {errors.tipoUsuario && <span style={styles.errorText}>{errors.tipoUsuario}</span>}
+      </div>
+
+      <div style={styles.inputGroup}>
+        <InputField
+          type="number"
+          value={guiche}
+          onChange={(e) => setGuiche(e.target.value)}
+          placeholder="Guichê"
+          style={{ ...styles.inputField, borderColor: errors.guiche ? 'red' : '#ccc', flex: '1' }} // Mais estreito
+        />
+        {errors.guiche && <span style={styles.errorText}>{errors.guiche}</span>}
       </div>
 
       <div style={styles.buttonContainer}>

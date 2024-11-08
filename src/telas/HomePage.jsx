@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from "styled-components";
-import { FaUser, FaSignOutAlt } from "react-icons/fa";
+import { FaUser, FaSignOutAlt, FaTv } from "react-icons/fa";
 import { IoMdBusiness, IoMdClipboard } from "react-icons/io";
 import { RiCustomerService2Fill } from "react-icons/ri";
 import { HiDeviceMobile } from "react-icons/hi";
@@ -126,12 +126,12 @@ const Home = () => {
               <p>Usuários</p>
             </Card>
 
-            <Card style={{ backgroundColor: '#084d6e' }} onClick={() => alert('Guichês')}>
-              <RiCustomerService2Fill size={40} color="#fff" />
-              <p>Guichês</p>
+            <Card style={{ backgroundColor: '#084d6e' }} onClick={() => alert('painel')}>
+            <FaTv size={40} color="#fff" />
+              <p>Painel</p>
             </Card>
 
-            <Card style={{ backgroundColor: '#f7b291' }} onClick={() => alert('Chamada')}>
+            <Card style={{ backgroundColor: '#f7b291' }} onClick={() => window.location.href = "/chamada"}>
               <IoMdClipboard size={40} color="#fff" />
               <p>Chamada</p>
             </Card>
