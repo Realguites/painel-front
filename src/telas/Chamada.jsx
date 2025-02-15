@@ -92,18 +92,35 @@ function CallNextTicket() {
 
   // Inicializando o EventSource (SSE) para receber novas fichas da API
   useEffect(() => {
-    const eventSource = new EventSource(`${API_BASE_URL}/fichas/stream`);
+    const connectToSSE = () => {
+        const eventSource = new EventSource(`${API_BASE_URL}/fichas/stream`);
 
-    eventSource.addEventListener('newFicha', (event) => {
-      const newFicha = JSON.parse(event.data);
-      console.log('Nova ficha recebida:', newFicha);
-      addNewTicket(newFicha); // Adiciona e ordena a nova ficha na fila
-    });
+        eventSource.addEventListener('newFicha', (event) => {
+            const newFicha = JSON.parse(event.data);
+            console.log('Nova ficha recebida:', newFicha);
+            addNewTicket(newFicha); // Adiciona e ordena a nova ficha na fila
+        });
+
+        eventSource.onerror = (error) => {
+            console.error('Erro na conexão SSE:', error);
+            eventSource.close(); // Fecha a conexão em caso de erro
+
+            // Tenta reconectar após 5 segundos
+            setTimeout(() => {
+                console.log('Tentando reconectar ao SSE...');
+                connectToSSE();
+            }, 5000);
+        };
+
+        return eventSource;
+    };
+
+    const eventSource = connectToSSE();
 
     return () => {
-      eventSource.close();
+        eventSource.close(); // Fecha a conexão ao desmontar o componente
     };
-  }, [nextTickets]); // Atualiza sempre que o estado nextTickets mudar
+}, [nextTickets]); // Atualiza sempre que o estado nextTickets mudar
 
   const fetchFichas = async () => {
     const token = localStorage.getItem("jwtToken");
