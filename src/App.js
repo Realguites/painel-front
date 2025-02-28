@@ -6,6 +6,8 @@ import UserRegistration from './telas/UserRegistration';
 import CadastroEmpresa from './telas/CadastroEmpresa';
 import HomePage from './telas/HomePage';
 import Chamada from './telas/Chamada';
+import Painel from './telas/Painel';
+import Dispositivos from './telas/Dispositivos';
 
 
 /*const eventSource = new EventSource('http://localhost:8080/stream-sse');
@@ -30,6 +32,8 @@ function App() {
         <Route path="/home" element={<HomePage />} />
         <Route path="/cadastroEmpresas" element={<CadastroEmpresa />} />
         <Route path="/chamada" element={<Chamada />} />
+        <Route path="/painel" element={<Painel/>} />
+        <Route path="/dispositivos" element={<Dispositivos/>} />
       </Routes>
     </BrowserRouter>
 

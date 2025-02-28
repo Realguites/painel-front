@@ -69,7 +69,6 @@ const Home = () => {
   };
 
 
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("jwtToken");
@@ -126,7 +125,7 @@ const Home = () => {
               <p>Usuários</p>
             </Card>
 
-            <Card style={{ backgroundColor: '#084d6e' }} onClick={() => alert('painel')}>
+            <Card style={{ backgroundColor: '#084d6e' }} onClick={() => window.location.href = "/painel"}>
             <FaTv size={40} color="#fff" />
               <p>Painel</p>
             </Card>
@@ -136,7 +135,7 @@ const Home = () => {
               <p>Chamada</p>
             </Card>
 
-            <Card style={{ backgroundColor: '#54a0ff' }} onClick={() => alert('Dispositivos')}>
+            <Card style={{ backgroundColor: '#54a0ff' }} onClick={() => window.location.href = "/dispositivos"}>
               <HiDeviceMobile size={40} color="#fff" />
               <p>Dispositivos</p>
             </Card>

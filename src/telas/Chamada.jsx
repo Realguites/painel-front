@@ -7,37 +7,37 @@ function CallNextTicket() {
   const [ticketNumber, setTicketNumber] = useState('Nenhuma ficha chamada!');
   const [guiche, setGuiche] = useState('Nenhum Guichê definido!');
   const [nextTickets, setNextTickets] = useState([]);
+  const [ticketsOriginais, setTicketsOriginais] = useState([]);
   const { API_BASE_URL } = config;
   const [isBlinking, setIsBlinking] = useState(false);
   const [highlightedTicket, setHighlightedTicket] = useState(null);
 
   const handleNextTicket = async () => {
     const nextTicket = nextTickets.shift(); // Remove o próximo ticket da fila
-    if (nextTicket) {
-      setTicketNumber(formatTicketNumber(nextTicket.numero, nextTicket.identPrioridade)); // Mostra o número formatado ao usuário
-      setNextTickets([...nextTickets]);
-      setIsBlinking(true);
-
-      // Envia o ticket via POST (agora envia todo o objeto nextTicket)
+   
       await sendTicketToAPI(nextTicket);
-
+      await fetchFichas();
       // Verifica se o número de tickets restantes é menor que 10 e busca mais fichas se necessário
       if (nextTickets.length < 10) {
-        await fetchMoreFichas();
+        //await fetchMoreFichas();
       }
-    }
+    //}
   };
 
-  const sendTicketToAPI = async (ticket) => {
+  const sendTicketToAPI = async () => {
     const token = localStorage.getItem("jwtToken");
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/fichas/chamar`, { idFicha: ticket.idFicha }, {
+      const response = await axios.post(`${API_BASE_URL}/fichas/chamar`, {}, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
+      }).then((e)=>{
+        console.log(e)
+        setTicketNumber(formatTicketNumber(e.data.numero, e.data.identPrioridade)); // Mostra o número formatado ao usuário
+        setIsBlinking(true)
       });
-      console.log('Ticket enviado com sucesso:', response.data);
+      //console.log('Ticket enviado com sucesso:', response.data);
     } catch (error) {
       console.error('Erro ao enviar o ticket:', error);
     }
@@ -48,7 +48,7 @@ function CallNextTicket() {
   };
 
   const formatTicketNumber = (numero, prioridade) => {
-    const formattedNumber = numero.toString().padStart(6, '0');
+    const formattedNumber = numero.toString().padStart(5, '0');
     return prioridade === 'PRIORITARIO' ? `P${formattedNumber}` : `N${formattedNumber}`;
   };
 
@@ -96,9 +96,12 @@ function CallNextTicket() {
         const eventSource = new EventSource(`${API_BASE_URL}/fichas/stream`);
 
         eventSource.addEventListener('newFicha', (event) => {
-            const newFicha = JSON.parse(event.data);
-            console.log('Nova ficha recebida:', newFicha);
-            addNewTicket(newFicha); // Adiciona e ordena a nova ficha na fila
+          const newFicha = JSON.parse(event.data);  
+          if(!ticketsOriginais.find(obj=> obj.idFicha === newFicha.idFicha)){
+              console.log('Nova ficha recebida:', newFicha);
+              ticketsOriginais.push(newFicha)
+              addNewTicket(newFicha); // Adiciona e ordena a nova ficha na fila
+            }
         });
 
         eventSource.onerror = (error) => {
@@ -134,7 +137,7 @@ function CallNextTicket() {
 
       const fetchedFichas = response.data;
       setNextTickets(sortTickets(fetchedFichas)); // Armazena objetos completos e ordena a fila
-
+      setTicketsOriginais(sortTickets(fetchedFichas))
     } catch (error) {
       if (error.response && error.response.status === 401) {
         handleUnauthorized();
@@ -184,7 +187,7 @@ function CallNextTicket() {
       <button style={styles.button} onClick={handleNextTicket}>
         Chamar o Próximo
       </button>
-      <h3 style={styles.subHeader}>Próximos a serem chamados:</h3>
+      <h3 style={styles.subHeader}>Próximos a serem chamados: ({nextTickets.length} na fila)</h3>
       <ul style={styles.nextTickets}>
         {nextTickets.length > 0 ? (
           nextTickets.slice(0, 10).map((ticket, index) => (
