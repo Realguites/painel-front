@@ -8,12 +8,30 @@ function Painel() {
   const [lastCalledTicket, setLastCalledTicket] = useState('Nenhuma ficha chamada!');
   const [nextTickets, setNextTickets] = useState([]);
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
-  const [temperature, setTemperature] = useState('--°C');
   const [guiche, setGuiche] = useState('-');
   const { API_BASE_URL } = config;
   const [isLastTicketVisible, setIsLastTicketVisible] = useState(true);
   const [blinkCount, setBlinkCount] = useState(0);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [weatherData, setWeatherData] = useState(null); // Estado para armazenar os dados do clima
+
+  const API_KEY = 'c4200076a97c0a637b7c3aca46b9bc6c'; // Sua chave de API
+  const cidade = 'Canguçu,BR'; // Cidade e país
+  const url_previsao_tempo = `https://api.openweathermap.org/data/2.5/weather?q=${cidade}&APPID=${API_KEY}&units=metric`;
+
+  // Função para buscar os dados do clima
+  const fetchWeatherData = async () => {
+    try {
+      const response = await fetch(url_previsao_tempo);
+      if (!response.ok) {
+        throw new Error(`Erro na requisição: ${response.status}`);
+      }
+      const data = await response.json();
+      setWeatherData(data); // Armazena os dados do clima no estado
+    } catch (error) {
+      console.error('Erro ao buscar dados do clima:', error);
+    }
+  };
 
   // Função para buscar a última ficha chamada
   const fetchLastCalledTicket = async () => {
@@ -86,16 +104,6 @@ function Painel() {
     return [...priorityTickets, ...normalTickets];
   };
 
-  // Função para buscar a temperatura atual (exemplo usando uma API fictícia)
-  const fetchTemperature = async () => {
-    try {
-      const response = await axios.get('https://api.temperatura.com/current');
-      setTemperature(`${response.data.temperature}°C`);
-    } catch (error) {
-      console.error('Erro ao buscar a temperatura:', error);
-    }
-  };
-
   // Função para falar a ficha e o guichê
   const speakFicha = (numero, prioridade, guiche) => {
     const texto = `Ficha, ${formatTicketNumber(numero, prioridade)}, guichê ${guiche}`;
@@ -105,6 +113,21 @@ function Painel() {
     utterance.pitch = 1;
     speechSynthesis.speak(utterance);
   };
+// Função para formatar a data e hora no formato DD/MM/YYYY HH:MM (GMT -3.0)
+const formatDateTime = (date) => {
+  const options = {
+    timeZone: 'America/Sao_Paulo', // Fuso horário GMT -3.0 (Brasília)
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false, // Formato 24 horas
+  };
+
+  return new Intl.DateTimeFormat('pt-BR', options).format(date);
+};
 
   // Atualiza a data e hora a cada segundo
   useEffect(() => {
@@ -119,8 +142,8 @@ function Painel() {
   useEffect(() => {
     fetchLastCalledTicket();
     fetchNextTickets();
-    fetchTemperature();
-  }, []);
+    fetchWeatherData(); // Busca os dados do clima ao carregar a tela
+  }, [guiche]);
 
   // Conecta ao SSE para receber atualizações em tempo real
   useEffect(() => {
@@ -169,6 +192,9 @@ function Painel() {
     };
   }, [reconnectAttempts]);
 
+  // Função para obter a URL do ícone do clima
+  const iconUrl = (iconCode) => `http://openweathermap.org/img/wn/${iconCode}@2x.png`;
+
   return (
     <div style={styles.container}>
       <Header />
@@ -189,9 +215,35 @@ function Painel() {
         {/* Temperatura, Data e Hora */}
         <div style={styles.card}>
           <h2 style={styles.cardTitle}>Informações</h2>
-          <p style={styles.infoText}>Temperatura: {temperature}</p>
-          <p style={styles.infoText}>Data: {currentDateTime.toLocaleDateString()}</p>
-          <p style={styles.infoText}>Hora: {currentDateTime.toLocaleTimeString()}</p>
+          {weatherData && (
+            <>
+              {/* Ícone e Descrição do Clima */}
+              <div style={styles.weatherIconContainer}>
+                <img
+                  src={iconUrl(weatherData.weather[0].icon)}
+                  alt={weatherData.weather[0].description}
+                  style={styles.weatherIcon}
+                />
+                <p style={styles.tempText}>
+                {Math.round(weatherData.main.temp)}°C
+              </p>
+              </div>
+
+              
+              {/* Data e Hora */}
+              <p style={styles.timeText}>{formatDateTime(currentDateTime).split(',')[0]}</p>
+              <p style={styles.timeText}>{formatDateTime(currentDateTime).split(' ')[1]}</p>
+
+              {/* Sensação Térmica */}
+              <p style={styles.infoText}>
+                Sensação Térmica: {weatherData.main.feels_like}°C
+              </p>
+
+              {/* Umidade */}
+              <p style={styles.infoText}>Umidade: {weatherData.main.humidity}%</p>
+
+            </>
+          )}
         </div>
 
         {/* Próximas fichas a serem chamadas */}
@@ -256,8 +308,36 @@ const styles = {
     color: '#ffffff',
     marginTop: '10px',
   },
+  weatherIconContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '10px',
+  },
+  weatherIcon: {
+    width: '200px',
+    height: '200px',
+    marginRight: '10px',
+  },
+  weatherDescription: {
+    fontSize: '18px',
+    color: '#ffffff',
+    textTransform: 'capitalize',
+  },
   infoText: {
-    fontSize: '20px',
+    fontSize: '25px',
+    margin: '10px 0',
+    color: '#ffffff',
+  },
+
+  timeText: {
+    fontSize: '50px',
+    margin: '10px 0',
+    color: '#ffffff',
+    textTransform: 'capitalize',
+  },
+  tempText: {
+    fontSize: '100px',
     margin: '10px 0',
     color: '#ffffff',
   },

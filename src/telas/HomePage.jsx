@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from "styled-components";
 import { FaUser, FaSignOutAlt, FaTv } from "react-icons/fa";
 import { IoMdBusiness, IoMdClipboard } from "react-icons/io";
-import { RiCustomerService2Fill } from "react-icons/ri";
+import { DiAptana } from "react-icons/di";
 import { HiDeviceMobile } from "react-icons/hi";
 import { decodeToken } from "react-jwt";
 import Header from '../others/Header';
@@ -138,6 +138,11 @@ const Home = () => {
             <Card style={{ backgroundColor: '#54a0ff' }} onClick={() => window.location.href = "/dispositivos"}>
               <HiDeviceMobile size={40} color="#fff" />
               <p>Dispositivos</p>
+            </Card>
+
+            <Card style={{ backgroundColor: '#ff0000' }} onClick={console.log('configurações')}>
+              <DiAptana size={40} color="#fff" />
+              <p>Configurações</p>
             </Card>
 
             <Card style={{ backgroundColor: '#1dd1a1' }} onClick={handleLogout}>
