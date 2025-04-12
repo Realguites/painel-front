@@ -3,6 +3,7 @@ import axios from 'axios';
 import config from '../config/config';
 import Header from '../others/Header';
 import { isExpired, decodeToken } from "react-jwt";
+import Carrossel from '../others/Carrossel';
 
 function Painel() {
   const [lastCalledTicket, setLastCalledTicket] = useState('Nenhuma ficha chamada!');
@@ -18,6 +19,26 @@ function Painel() {
   const API_KEY = 'c4200076a97c0a637b7c3aca46b9bc6c'; // Sua chave de API
   const cidade = 'Canguçu,BR'; // Cidade e país
   const url_previsao_tempo = `https://api.openweathermap.org/data/2.5/weather?q=${cidade}&APPID=${API_KEY}&units=metric`;
+
+  const midias = [
+    {
+      url: 'https://i.pinimg.com/originals/06/ec/d0/06ecd0afe6a0c76d51f943b5321fb318.gif', // Link de imagem funcional
+      tipo: 'imagem',
+    },
+    {
+      url: 'https://static.wixstatic.com/media/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif/v1/fill/w_280,h_151,q_90,enc_avif,quality_auto/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif', // Link de vídeo funcional
+      tipo: 'imagem',
+    },
+    {
+      url: 'https://i.gifer.com/X15M.gif', // Link de vídeo funcional
+      tipo: 'imagem',
+    },
+    {
+      url: 'https://static.wixstatic.com/media/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif/v1/fill/w_280,h_151,q_90,enc_avif,quality_auto/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif', // Link de vídeo funcional
+      tipo: 'imagem',
+    }
+    
+  ];
 
   // Função para buscar os dados do clima
   const fetchWeatherData = async () => {
@@ -198,7 +219,9 @@ const formatDateTime = (date) => {
   return (
     <div style={styles.container}>
       <Header />
+
       <div style={styles.grid}>
+
         {/* Última ficha chamada */}
         <div style={styles.card}>
           <h2 style={styles.cardTitle}>Última Ficha Chamada</h2>
@@ -210,6 +233,9 @@ const formatDateTime = (date) => {
             {lastCalledTicket}
           </p>
           <p style={styles.guiche}>Guichê: {guiche}</p>
+          <div style={{ padding: '10px', backgroundColor: '#1e1e1e' }}>
+        <Carrossel midias={midias} />
+      </div>
         </div>
 
         {/* Temperatura, Data e Hora */}
