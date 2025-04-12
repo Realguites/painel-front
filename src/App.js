@@ -8,6 +8,7 @@ import HomePage from './telas/HomePage';
 import Chamada from './telas/Chamada';
 import Painel from './telas/Painel';
 import Dispositivos from './telas/Dispositivos';
+import SmartphoneManagement from "./telas/SmartphoneManagement";
 
 
 /*const eventSource = new EventSource('http://localhost:8080/stream-sse');
@@ -34,6 +35,7 @@ function App() {
         <Route path="/chamada" element={<Chamada />} />
         <Route path="/painel" element={<Painel/>} />
         <Route path="/dispositivos" element={<Dispositivos/>} />
+        <Route path="/smartphones" element={<SmartphoneManagement/>} />
       </Routes>
     </BrowserRouter>
 

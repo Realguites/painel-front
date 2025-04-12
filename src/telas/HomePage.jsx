@@ -135,9 +135,9 @@ const Home = () => {
               <p>Chamada</p>
             </Card>
 
-            <Card style={{ backgroundColor: '#54a0ff' }} onClick={() => window.location.href = "/dispositivos"}>
+            <Card style={{ backgroundColor: '#54a0ff' }} onClick={() => window.location.href = "/smartphones"}>
               <HiDeviceMobile size={40} color="#fff" />
-              <p>Dispositivos</p>
+              <p>Smartphones</p>
             </Card>
 
             <Card style={{ backgroundColor: '#ff0000' }} onClick={console.log('configurações')}>
