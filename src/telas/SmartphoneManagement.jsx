@@ -57,11 +57,22 @@ function SmartphoneManagement() {
   const fetchSmartphones = async () => {
     setLoading(true);
     setError(null);
+
+    const token = localStorage.getItem("jwtToken");
     
-    try {
-      // Simulação de chamada API
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setSmartphones(mockSmartphones);
+    //try {
+     // await new Promise(resolve => setTimeout(resolve, 800));
+     // setSmartphones(mockSmartphones);
+
+
+      try {
+        const response = await axios.get(`${API_BASE_URL}/smartphones/empresa`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        setSmartphones(response.data);
+      
     } catch (err) {
       setError('Erro ao carregar smartphones. Tente novamente.');
       console.error('Erro na busca:', err);
