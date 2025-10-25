@@ -9,19 +9,8 @@ import Chamada from './telas/Chamada';
 import Painel from './telas/Painel';
 import Dispositivos from './telas/Dispositivos';
 import SmartphoneManagement from "./telas/SmartphoneManagement";
+import Configuracoes from "./telas/Configuracoes";
 
-
-/*const eventSource = new EventSource('http://localhost:8080/stream-sse');
- 
-
-eventSource.onmessage = function(event) {
-    console.log('Nova mensagem:', event.data);
-    // Atualize o front-end aqui com o evento recebido
-};
-
-eventSource.onerror = function(event) {
-    console.error('Erro no SSE:', event);
-};*/
 
 function App() {
   return (
@@ -36,6 +25,7 @@ function App() {
         <Route path="/painel" element={<Painel/>} />
         <Route path="/dispositivos" element={<Dispositivos/>} />
         <Route path="/smartphones" element={<SmartphoneManagement/>} />
+        <Route path="/config" element={<Configuracoes/>} />
       </Routes>
     </BrowserRouter>
 

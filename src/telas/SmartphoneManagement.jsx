@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaMobileAlt, FaSync, FaLock, FaLockOpen, FaTrash } from 'react-icons/fa';
+import { FaMobileAlt, FaSync, FaLock, FaLockOpen, FaTrash, FaPlus } from 'react-icons/fa';
 import config from '../config/config';
 import Header from '../others/Header';
 
@@ -8,47 +8,15 @@ function SmartphoneManagement() {
   const [smartphones, setSmartphones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editingSmartphone, setEditingSmartphone] = useState(null);
+  const [formData, setFormData] = useState({
+    nome: '',
+    modelo: '',
+    nrIdentificacao: '',
+    versao: ''
+  });
   const { API_BASE_URL } = config;
-
-  // Dados mockados aprimorados
-  const mockSmartphones = [
-    {
-      id: 1,
-      nome: 'Samsung Galaxy S23',
-      modelo: 'SM-S911B',
-      numeroSerie: 'R58T40XYZAB',
-      status: 'liberado',
-      usuario: 'João Silva',
-      departamento: 'TI',
-      dataCadastro: '15/03/2023',
-      sistemaOperacional: 'Android 13',
-      ultimoAcesso: 'Hoje, 09:42'
-    },
-    {
-      id: 2,
-      nome: 'iPhone 14 Pro',
-      modelo: 'A2890',
-      numeroSerie: 'F2GH45XYZCD',
-      status: 'bloqueado',
-      usuario: 'Maria Souza',
-      departamento: 'RH',
-      dataCadastro: '22/02/2023',
-      sistemaOperacional: 'iOS 16',
-      ultimoAcesso: 'Ontem, 15:30'
-    },
-    {
-      id: 3,
-      nome: 'Xiaomi Redmi Note 12',
-      modelo: '22111317G',
-      numeroSerie: 'XMN12345678',
-      status: 'liberado',
-      usuario: 'Carlos Oliveira',
-      departamento: 'Vendas',
-      dataCadastro: '10/04/2023',
-      sistemaOperacional: 'Android 12',
-      ultimoAcesso: 'Hoje, 11:15'
-    }
-  ];
 
   useEffect(() => {
     fetchSmartphones();
@@ -57,22 +25,15 @@ function SmartphoneManagement() {
   const fetchSmartphones = async () => {
     setLoading(true);
     setError(null);
-
     const token = localStorage.getItem("jwtToken");
-    
-    //try {
-     // await new Promise(resolve => setTimeout(resolve, 800));
-     // setSmartphones(mockSmartphones);
 
-
-      try {
-        const response = await axios.get(`${API_BASE_URL}/smartphones/empresa`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        setSmartphones(response.data);
-      
+    try {
+      const response = await axios.get(`${API_BASE_URL}/smartphones/empresa`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setSmartphones(response.data);
     } catch (err) {
       setError('Erro ao carregar smartphones. Tente novamente.');
       console.error('Erro na busca:', err);
@@ -81,26 +42,135 @@ function SmartphoneManagement() {
     }
   };
 
-  const handleStatusChange = async (id, newStatus) => {
+  const handleStatusChange = async (id, currentStatus) => {
+    const token = localStorage.getItem("jwtToken");
+    const newStatus = !currentStatus;
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setSmartphones(smartphones.map(device => 
-        device.id === id ? { ...device, status: newStatus } : device
-      ));
+      const response = await axios.put(`${API_BASE_URL}/smartphones/${id}`, {
+        ativo: newStatus
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.status === 200) {
+        setSmartphones(smartphones.map(device => 
+          device.id === id ? { ...device, ativo: newStatus } : device
+        ));
+      }
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
+      setError('Erro ao atualizar status do smartphone.');
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Tem certeza que deseja excluir este smartphone?')) return;
     
+    const token = localStorage.getItem("jwtToken");
+    
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setSmartphones(smartphones.filter(device => device.id !== id));
+      const response = await axios.delete(`${API_BASE_URL}/smartphones/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.status === 204) {
+        setSmartphones(smartphones.filter(device => device.id !== id));
+      }
     } catch (error) {
       console.error('Erro ao excluir smartphone:', error);
+      setError('Erro ao excluir smartphone.');
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem("jwtToken");
+
+    try {
+      if (editingSmartphone) {
+        // Atualizar smartphone existente
+        const response = await axios.put(
+          `${API_BASE_URL}/smartphones/${editingSmartphone.id}`,
+          formData,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (response.status === 200) {
+          setSmartphones(smartphones.map(device => 
+            device.id === editingSmartphone.id ? response.data : device
+          ));
+          setShowModal(false);
+          resetForm();
+        }
+      } else {
+        // Criar novo smartphone
+        const response = await axios.post(
+          `${API_BASE_URL}/smartphones`,
+          formData,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (response.status === 201 || response.status === 200) {
+          setSmartphones([...smartphones, response.data]);
+          setShowModal(false);
+          resetForm();
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao salvar smartphone:', error);
+      if (error.response?.status === 409) {
+        setError('Este smartphone já está cadastrado mas está bloqueado.');
+      } else {
+        setError('Erro ao salvar smartphone. Verifique os dados e tente novamente.');
+      }
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      nome: '',
+      modelo: '',
+      nrIdentificacao: '',
+      versao: ''
+    });
+    setEditingSmartphone(null);
+  };
+
+  const openModal = (smartphone = null) => {
+    if (smartphone) {
+      setEditingSmartphone(smartphone);
+      setFormData({
+        nome: smartphone.nome || '',
+        modelo: smartphone.modelo || '',
+        nrIdentificacao: smartphone.nrIdentificacao || '',
+        versao: smartphone.versao || ''
+      });
+    } else {
+      resetForm();
+    }
+    setShowModal(true);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Nunca';
+    const date = new Date(dateString);
+    return date.toLocaleString('pt-BR');
   };
 
   return (
@@ -112,37 +182,50 @@ function SmartphoneManagement() {
             <FaMobileAlt style={styles.titleIcon} />
             <h1 style={styles.title}>Gerenciamento de Smartphones</h1>
           </div>
-          <button 
-            onClick={fetchSmartphones}
-            style={styles.refreshButton}
-            disabled={loading}
-          >
-            <FaSync style={loading ? { animation: 'spin 1s linear infinite' } : {}} />
-            {loading ? ' Atualizando...' : ' Atualizar'}
-          </button>
+          <div style={styles.headerButtons}>
+            <button 
+              onClick={() => openModal()}
+              style={styles.addButton}
+            >
+              <FaPlus /> Adicionar Smartphone
+            </button>
+            <button 
+              onClick={fetchSmartphones}
+              style={styles.refreshButton}
+              disabled={loading}
+            >
+              <FaSync style={loading ? { animation: 'spin 1s linear infinite' } : {}} />
+              {loading ? ' Atualizando...' : ' Atualizar'}
+            </button>
+          </div>
         </div>
         
         {/* Status Cards */}
         <div style={styles.statsContainer}>
           <div style={styles.statCard}>
             <div style={styles.statValue}>{smartphones.length}</div>
-            <div style={styles.statLabel}>Dispositivos</div>
+            <div style={styles.statLabel}>Total de Dispositivos</div>
           </div>
           <div style={{...styles.statCard, borderLeft: '4px solid #4CAF50'}}>
             <div style={{...styles.statValue, color: '#4CAF50'}}>
-              {smartphones.filter(d => d.status === 'liberado').length}
+              {smartphones.filter(d => d.ativo).length}
             </div>
             <div style={styles.statLabel}>Liberados</div>
           </div>
           <div style={{...styles.statCard, borderLeft: '4px solid #F44336'}}>
             <div style={{...styles.statValue, color: '#F44336'}}>
-              {smartphones.filter(d => d.status === 'bloqueado').length}
+              {smartphones.filter(d => !d.ativo).length}
             </div>
             <div style={styles.statLabel}>Bloqueados</div>
           </div>
         </div>
 
-        {error && <div style={styles.error}>{error}</div>}
+        {error && (
+          <div style={styles.error}>
+            {error}
+            <button onClick={() => setError(null)} style={styles.closeError}>×</button>
+          </div>
+        )}
 
         {/* Lista de Smartphones */}
         <div style={styles.devicesContainer}>
@@ -157,10 +240,10 @@ function SmartphoneManagement() {
                   </div>
                   <span style={{
                     ...styles.deviceStatus,
-                    backgroundColor: device.status === 'liberado' ? '#E8F5E9' : '#FFEBEE',
-                    color: device.status === 'liberado' ? '#2E7D32' : '#C62828'
+                    backgroundColor: device.ativo ? '#E8F5E9' : '#FFEBEE',
+                    color: device.ativo ? '#2E7D32' : '#C62828'
                   }}>
-                    {device.status === 'liberado' ? (
+                    {device.ativo ? (
                       <>
                         <FaLockOpen style={{marginRight: '5px'}} />
                         Liberado
@@ -177,42 +260,44 @@ function SmartphoneManagement() {
                 <div style={styles.deviceDetails}>
                   <div style={styles.detailRow}>
                     <span style={styles.detailLabel}>Nº Série:</span>
-                    <span style={styles.detailValue}>{device.numeroSerie}</span>
-                  </div>
-                  <div style={styles.detailRow}>
-                    <span style={styles.detailLabel}>Usuário:</span>
-                    <span style={styles.detailValue}>{device.usuario}</span>
-                  </div>
-                  <div style={styles.detailRow}>
-                    <span style={styles.detailLabel}>Departamento:</span>
-                    <span style={styles.detailValue}>{device.departamento}</span>
+                    <span style={styles.detailValue}>{device.nrIdentificacao}</span>
                   </div>
                   <div style={styles.detailRow}>
                     <span style={styles.detailLabel}>Sistema:</span>
-                    <span style={styles.detailValue}>{device.sistemaOperacional}</span>
+                    <span style={styles.detailValue}>{device.versao}</span>
+                  </div>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Data Cadastro:</span>
+                    <span style={styles.detailValue}>{formatDate(device.dataCadastro)}</span>
                   </div>
                   <div style={styles.detailRow}>
                     <span style={styles.detailLabel}>Último Acesso:</span>
-                    <span style={styles.detailValue}>{device.ultimoAcesso}</span>
+                    <span style={styles.detailValue}>{formatDate(device.ultimoAcesso)}</span>
                   </div>
                 </div>
                 
                 <div style={styles.deviceActions}>
                   <button 
-                    onClick={() => handleStatusChange(
-                      device.id, 
-                      device.status === 'liberado' ? 'bloqueado' : 'liberado'
-                    )}
+                    onClick={() => handleStatusChange(device.idSmartphone, device.ativo)}
                     style={{
                       ...styles.actionButton,
-                      backgroundColor: device.status === 'liberado' ? '#F44336' : '#4CAF50',
+                      backgroundColor: device.ativo ? '#F44336' : '#4CAF50',
                     }}
                   >
-                    {device.status === 'liberado' ? (
+                    {device.ativo ? (
                       <><FaLock /> Bloquear</>
                     ) : (
                       <><FaLockOpen /> Liberar</>
                     )}
+                  </button>
+                  <button 
+                    onClick={() => openModal(device)}
+                    style={{
+                      ...styles.actionButton,
+                      backgroundColor: '#2196F3',
+                    }}
+                  >
+                    Editar
                   </button>
                   <button 
                     onClick={() => handleDelete(device.id)}
@@ -232,6 +317,69 @@ function SmartphoneManagement() {
             </div>
           )}
         </div>
+
+        {/* Modal para Adicionar/Editar */}
+        {showModal && (
+          <div style={styles.modalOverlay}>
+            <div style={styles.modal}>
+              <div style={styles.modalHeader}>
+                <h2>{editingSmartphone ? 'Editar Smartphone' : 'Adicionar Smartphone'}</h2>
+                <button onClick={() => setShowModal(false)} style={styles.closeButton}>×</button>
+              </div>
+              <form onSubmit={handleSubmit} style={styles.form}>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Nome:</label>
+                  <input
+                    type="text"
+                    value={formData.nome}
+                    onChange={(e) => setFormData({...formData, nome: e.target.value})}
+                    style={styles.input}
+                    required
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Modelo:</label>
+                  <input
+                    type="text"
+                    value={formData.modelo}
+                    onChange={(e) => setFormData({...formData, modelo: e.target.value})}
+                    style={styles.input}
+                    required
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Número de Série:</label>
+                  <input
+                    type="text"
+                    value={formData.nrIdentificacao}
+                    onChange={(e) => setFormData({...formData, nrIdentificacao: e.target.value})}
+                    style={styles.input}
+                    required
+                    disabled={!!editingSmartphone}
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Versão do Sistema:</label>
+                  <input
+                    type="text"
+                    value={formData.versao}
+                    onChange={(e) => setFormData({...formData, versao: e.target.value})}
+                    style={styles.input}
+                    required
+                  />
+                </div>
+                <div style={styles.modalActions}>
+                  <button type="button" onClick={() => setShowModal(false)} style={styles.cancelButton}>
+                    Cancelar
+                  </button>
+                  <button type="submit" style={styles.saveButton}>
+                    {editingSmartphone ? 'Atualizar' : 'Cadastrar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -274,6 +422,24 @@ const styles = {
     color: '#333',
     fontWeight: '600',
   },
+  headerButtons: {
+    display: 'flex',
+    gap: '12px',
+    flexWrap: 'wrap',
+  },
+  addButton: {
+    padding: '10px 16px',
+    fontSize: '14px',
+    backgroundColor: '#4CAF50',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    transition: 'all 0.3s ease',
+  },
   refreshButton: {
     padding: '10px 16px',
     fontSize: '14px',
@@ -286,13 +452,6 @@ const styles = {
     alignItems: 'center',
     gap: '8px',
     transition: 'all 0.3s ease',
-    '&:hover': {
-      backgroundColor: '#1976D2',
-    },
-    '&:disabled': {
-      opacity: '0.7',
-      cursor: 'not-allowed',
-    },
   },
   statsContainer: {
     display: 'flex',
@@ -326,11 +485,18 @@ const styles = {
     marginBottom: '24px',
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
+    justifyContent: 'space-between',
+  },
+  closeError: {
+    background: 'none',
+    border: 'none',
+    color: '#C62828',
+    fontSize: '18px',
+    cursor: 'pointer',
   },
   devicesContainer: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
     gap: '20px',
   },
   deviceCard: {
@@ -339,10 +505,6 @@ const styles = {
     boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
     overflow: 'hidden',
     transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-    '&:hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-    },
   },
   deviceHeader: {
     display: 'flex',
@@ -382,9 +544,6 @@ const styles = {
   detailRow: {
     display: 'flex',
     marginBottom: '12px',
-    '&:last-child': {
-      marginBottom: '0',
-    },
   },
   detailLabel: {
     flex: '0 0 120px',
@@ -417,9 +576,6 @@ const styles = {
     justifyContent: 'center',
     gap: '6px',
     transition: 'all 0.3s ease',
-    '&:hover': {
-      opacity: '0.9',
-    },
   },
   noDevices: {
     gridColumn: '1 / -1',
@@ -429,6 +585,83 @@ const styles = {
     backgroundColor: 'white',
     borderRadius: '8px',
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  modal: {
+    backgroundColor: 'white',
+    borderRadius: '8px',
+    padding: '0',
+    width: '90%',
+    maxWidth: '500px',
+    maxHeight: '90vh',
+    overflow: 'auto',
+  },
+  modalHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '20px',
+    borderBottom: '1px solid #eee',
+  },
+  closeButton: {
+    background: 'none',
+    border: 'none',
+    fontSize: '24px',
+    cursor: 'pointer',
+    color: '#666',
+  },
+  form: {
+    padding: '20px',
+  },
+  formGroup: {
+    marginBottom: '16px',
+  },
+  label: {
+    display: 'block',
+    marginBottom: '8px',
+    fontWeight: '500',
+    color: '#333',
+  },
+  input: {
+    width: '100%',
+    padding: '10px',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    fontSize: '14px',
+    boxSizing: 'border-box',
+  },
+  modalActions: {
+    display: 'flex',
+    gap: '12px',
+    justifyContent: 'flex-end',
+    marginTop: '24px',
+  },
+  cancelButton: {
+    padding: '10px 20px',
+    backgroundColor: '#757575',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+  },
+  saveButton: {
+    padding: '10px 20px',
+    backgroundColor: '#2196F3',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
   },
 };
 

@@ -6,7 +6,7 @@ import { isExpired, decodeToken } from "react-jwt";
 import Carrossel from '../others/Carrossel';
 
 function Painel() {
-  const [lastCalledTicket, setLastCalledTicket] = useState('Nenhuma ficha chamada!');
+  const [lastCalledTicket, setLastCalledTicket] = useState(' - ');
   const [nextTickets, setNextTickets] = useState([]);
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
   const [guiche, setGuiche] = useState('-');
@@ -14,47 +14,46 @@ function Painel() {
   const [isLastTicketVisible, setIsLastTicketVisible] = useState(true);
   const [blinkCount, setBlinkCount] = useState(0);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
-  const [weatherData, setWeatherData] = useState(null); // Estado para armazenar os dados do clima
+  const [weatherData, setWeatherData] = useState(null);
 
-  const API_KEY = 'c4200076a97c0a637b7c3aca46b9bc6c'; // Sua chave de API
-  const cidade = 'Canguçu,BR'; // Cidade e país
+  const API_KEY = 'c4200076a97c0a637b7c3aca46b9bc6c';
+  const cidade = 'Canguçu,BR';
   const url_previsao_tempo = `https://api.openweathermap.org/data/2.5/weather?q=${cidade}&APPID=${API_KEY}&units=metric`;
 
   const midias = [
     {
-      url: 'https://i.pinimg.com/originals/06/ec/d0/06ecd0afe6a0c76d51f943b5321fb318.gif', // Link de imagem funcional
+      url: 'https://i.pinimg.com/originals/06/ec/d0/06ecd0afe6a0c76d51f943b5321fb318.gif',
       tipo: 'imagem',
     },
     {
-      url: 'https://static.wixstatic.com/media/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif/v1/fill/w_280,h_151,q_90,enc_avif,quality_auto/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif', // Link de vídeo funcional
+      url: 'https://static.wixstatic.com/media/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif/v1/fill/w_280,h_151,q_90,enc_avif,quality_auto/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif',
       tipo: 'imagem',
     },
     {
-      url: 'https://i.gifer.com/X15M.gif', // Link de vídeo funcional
+      url: 'https://i.gifer.com/X15M.gif',
       tipo: 'imagem',
     },
     {
-      url: 'https://static.wixstatic.com/media/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif/v1/fill/w_280,h_151,q_90,enc_avif,quality_auto/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif', // Link de vídeo funcional
+      url: 'https://static.wixstatic.com/media/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif/v1/fill/w_280,h_151,q_90,enc_avif,quality_auto/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif',
       tipo: 'imagem',
     }
-    
   ];
 
-  // Função para buscar os dados do clima
   const fetchWeatherData = async () => {
     try {
+      console.log('🔄 Atualizando dados do clima...');
       const response = await fetch(url_previsao_tempo);
       if (!response.ok) {
         throw new Error(`Erro na requisição: ${response.status}`);
       }
       const data = await response.json();
-      setWeatherData(data); // Armazena os dados do clima no estado
+      setWeatherData(data);
+      console.log('✅ Dados do clima atualizados com sucesso');
     } catch (error) {
-      console.error('Erro ao buscar dados do clima:', error);
+      console.error('❌ Erro ao buscar dados do clima:', error);
     }
   };
 
-  // Função para buscar a última ficha chamada
   const fetchLastCalledTicket = async () => {
     const token = localStorage.getItem("jwtToken");
 
@@ -73,9 +72,8 @@ function Painel() {
     }
   };
 
-  // Efeito de piscar para a última ficha chamada
   useEffect(() => {
-    if (!lastCalledTicket || lastCalledTicket === "Nenhuma ficha chamada!") return;
+    if (!lastCalledTicket || lastCalledTicket === " - ") return;
 
     setBlinkCount(0);
     setIsLastTicketVisible(true);
@@ -96,7 +94,6 @@ function Painel() {
     };
   }, [lastCalledTicket]);
 
-  // Função para buscar todas as fichas a serem chamadas
   const fetchNextTickets = async () => {
     const token = localStorage.getItem("jwtToken");
 
@@ -112,43 +109,112 @@ function Painel() {
     }
   };
 
-  // Função para formatar o número do ticket
   const formatTicketNumber = (numero, prioridade) => {
     const formattedNumber = numero.toString().padStart(5, '0');
     return prioridade === 'PRIORITARIO' ? `P${formattedNumber}` : `N${formattedNumber}`;
   };
 
-  // Função para ordenar as fichas (prioritárias primeiro)
   const sortTickets = (tickets) => {
     const priorityTickets = tickets.filter(ticket => ticket.identPrioridade === 'PRIORITARIO');
     const normalTickets = tickets.filter(ticket => ticket.identPrioridade === 'NORMAL');
     return [...priorityTickets, ...normalTickets];
   };
 
-  // Função para falar a ficha e o guichê
   const speakFicha = (numero, prioridade, guiche) => {
-    const texto = `Ficha, ${formatTicketNumber(numero, prioridade)}, guichê ${guiche}`;
+    const ticketFormatado = formatTicketNumber(numero, prioridade);
+    
+    // Texto formatado para uma fala mais natural
+    const texto = `Ficha ${ticketFormatado}, dirija-se ao guichê ${guiche}`;
+    
+    // Criar utterance
     const utterance = new SpeechSynthesisUtterance(texto);
     utterance.lang = 'pt-BR';
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    speechSynthesis.speak(utterance);
-  };
-// Função para formatar a data e hora no formato DD/MM/YYYY HH:MM (GMT -3.0)
-const formatDateTime = (date) => {
-  const options = {
-    timeZone: 'America/Sao_Paulo', // Fuso horário GMT -3.0 (Brasília)
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false, // Formato 24 horas
+    utterance.rate = 0.9; // Velocidade um pouco mais lenta para melhor compreensão
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+
+    // Tentar usar voz do Google se disponível
+    const voices = speechSynthesis.getVoices();
+    
+    // Procurar por vozes em português do Brasil com qualidade do Google
+    const googleVoice = voices.find(voice => 
+      voice.lang.includes('pt-BR') && 
+      (
+        voice.name.includes('Google') || 
+        voice.name.includes('Natural') || 
+        voice.name.includes('Premium') ||
+        voice.voiceURI.includes('google')
+      )
+    );
+
+    // Se não encontrar voz do Google, usar qualquer voz em português
+    const portugueseVoice = voices.find(voice => 
+      voice.lang.includes('pt-BR')
+    );
+
+    // Priorizar voz do Google, depois qualquer voz em português
+    if (googleVoice) {
+      utterance.voice = googleVoice;
+      console.log('🎤 Usando voz do Google:', googleVoice.name);
+    } else if (portugueseVoice) {
+      utterance.voice = portugueseVoice;
+      console.log('🎤 Usando voz em português:', portugueseVoice.name);
+    } else {
+      console.log('🎤 Usando voz padrão do sistema');
+    }
+
+    // Eventos para debug
+    utterance.onstart = () => {
+      console.log('🔊 Iniciando fala da ficha:', texto);
+    };
+
+    utterance.onend = () => {
+      console.log('✅ Fala concluída');
+    };
+
+    utterance.onerror = (event) => {
+      console.error('❌ Erro na síntese de voz:', event.error);
+    };
+
+    // Parar qualquer fala anterior antes de iniciar nova
+    speechSynthesis.cancel();
+    
+    // Pequeno delay para garantir que a fala anterior foi cancelada
+    setTimeout(() => {
+      speechSynthesis.speak(utterance);
+    }, 100);
   };
 
-  return new Intl.DateTimeFormat('pt-BR', options).format(date);
-};
+  // Carregar vozes quando disponíveis
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = speechSynthesis.getVoices();
+      console.log('🗣️ Vozes disponíveis:', voices.map(v => `${v.name} (${v.lang})`));
+    };
+
+    // Carregar vozes quando estiverem disponíveis
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+      speechSynthesis.onvoiceschanged = loadVoices;
+    }
+
+    // Carregar vozes imediatamente se já estiverem disponíveis
+    loadVoices();
+  }, []);
+
+  const formatDateTime = (date) => {
+    const options = {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    };
+
+    return new Intl.DateTimeFormat('pt-BR', options).format(date);
+  };
 
   // Atualiza a data e hora a cada segundo
   useEffect(() => {
@@ -159,12 +225,22 @@ const formatDateTime = (date) => {
     return () => clearInterval(timer);
   }, []);
 
-  // Busca a última ficha chamada e as próximas fichas ao carregar a tela
+  // Busca inicial dos dados
   useEffect(() => {
     fetchLastCalledTicket();
     fetchNextTickets();
-    fetchWeatherData(); // Busca os dados do clima ao carregar a tela
+    fetchWeatherData(); // Busca inicial dos dados do clima
   }, [guiche]);
+
+  // Atualiza a previsão do tempo a cada 5 minutos (300000 ms)
+  useEffect(() => {
+    const weatherInterval = setInterval(() => {
+      fetchWeatherData();
+    }, 300000); // 5 minutos = 300000 milissegundos
+
+    // Limpa o intervalo quando o componente for desmontado
+    return () => clearInterval(weatherInterval);
+  }, []);
 
   // Conecta ao SSE para receber atualizações em tempo real
   useEffect(() => {
@@ -213,79 +289,110 @@ const formatDateTime = (date) => {
     };
   }, [reconnectAttempts]);
 
-  // Função para obter a URL do ícone do clima
   const iconUrl = (iconCode) => `http://openweathermap.org/img/wn/${iconCode}@2x.png`;
 
   return (
     <div style={styles.container}>
-      <Header />
 
       <div style={styles.grid}>
+        {/* Última ficha chamada - Card Principal */}
+        <div style={styles.mainCard}>
+          <div style={styles.cardHeader}>
+            <h2 style={styles.mainCardTitle}>Última Ficha Chamada</h2>
+            <div style={styles.guicheBadge}>
+              Guichê: <span style={styles.guicheNumber}>{guiche}</span>
+            </div>
+          </div>
+          
+          <div style={styles.ticketDisplay}>
+            <p style={{
+              ...styles.ticketNumber,
+              opacity: isLastTicketVisible ? 1 : 0,
+              transition: "opacity 0.3s ease-in-out"
+            }}>
+              {lastCalledTicket}
+            </p>
+          </div>
 
-        {/* Última ficha chamada */}
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>Última Ficha Chamada</h2>
-          <p style={{
-            ...styles.ticketNumber,
-            opacity: isLastTicketVisible ? 1 : 0,
-            transition: "opacity 0.3s ease-in-out"
-          }}>
-            {lastCalledTicket}
-          </p>
-          <p style={styles.guiche}>Guichê: {guiche}</p>
-          <div style={{ padding: '10px', backgroundColor: '#1e1e1e' }}>
-        <Carrossel midias={midias} />
-      </div>
+          <div style={styles.carouselContainer}>
+            <Carrossel midias={midias} />
+          </div>
         </div>
 
-        {/* Temperatura, Data e Hora */}
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>Informações</h2>
-          {weatherData && (
-            <>
-              {/* Ícone e Descrição do Clima */}
-              <div style={styles.weatherIconContainer}>
-                <img
-                  src={iconUrl(weatherData.weather[0].icon)}
-                  alt={weatherData.weather[0].description}
-                  style={styles.weatherIcon}
-                />
-                <p style={styles.tempText}>
-                {Math.round(weatherData.main.temp)}°C
-              </p>
+        {/* Informações do Clima e Tempo */}
+        <div style={styles.sidebar}>
+          <div style={styles.weatherCard}>
+            <h2 style={styles.cardTitle}>Previsão do Tempo</h2>
+            {weatherData && (
+              <div style={styles.weatherContent}>
+                <div style={styles.citySection}>
+                  <p style={styles.cityText}>Canguçu, RS</p>
+                  <small style={styles.updateInfo}>Atualiza a cada 5 min</small>
+                </div>
+                <div style={styles.weatherMain}>
+                  <img
+                    src={iconUrl(weatherData.weather[0].icon)}
+                    alt={weatherData.weather[0].description}
+                    style={styles.weatherIcon}
+                  />
+                  <div style={styles.weatherTemp}>
+                    <p style={styles.tempText}>{Math.round(weatherData.main.temp)}°C</p>
+                    <p style={styles.weatherDescription}>
+                      {weatherData.weather[0].description}
+                    </p>
+                  </div>
+                </div>
+                
+                <div style={styles.weatherDetails}>
+                  <div style={styles.weatherDetail}>
+                    <span style={styles.detailLabel}>Sensação Térmica</span>
+                    <span style={styles.detailValue}>{Math.round(weatherData.main.feels_like)}°C</span>
+                  </div>
+                  <div style={styles.weatherDetail}>
+                    <span style={styles.detailLabel}>Umidade</span>
+                    <span style={styles.detailValue}>{weatherData.main.humidity}%</span>
+                  </div>
+                </div>
               </div>
-
-              
-              {/* Data e Hora */}
-              <p style={styles.timeText}>{formatDateTime(currentDateTime).split(',')[0]}</p>
-              <p style={styles.timeText}>{formatDateTime(currentDateTime).split(' ')[1]}</p>
-
-              {/* Sensação Térmica */}
-              <p style={styles.infoText}>
-                Sensação Térmica: {weatherData.main.feels_like}°C
-              </p>
-
-              {/* Umidade */}
-              <p style={styles.infoText}>Umidade: {weatherData.main.humidity}%</p>
-
-            </>
-          )}
-        </div>
-
-        {/* Próximas fichas a serem chamadas */}
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>Próximas Fichas</h2>
-          <ul style={styles.ticketList}>
-            {nextTickets.length > 0 ? (
-              nextTickets.slice(0, 5).map((ticket, index) => (
-                <li key={index} style={styles.ticketItem}>
-                  {formatTicketNumber(ticket.numero, ticket.identPrioridade)}
-                </li>
-              ))
-            ) : (
-              <li style={styles.ticketItem}>Nenhuma ficha na fila</li>
             )}
-          </ul>
+          </div>
+
+          {/* Data e Hora */}
+          <div style={styles.timeCard}>
+            <div style={styles.dateSection}>
+              <p style={styles.dateText}>{formatDateTime(currentDateTime).split(',')[0]}</p>
+            </div>
+            <div style={styles.timeSection}>
+              <p style={styles.timeText}>{formatDateTime(currentDateTime).split(' ')[1]}</p>
+            </div>
+          </div>
+
+          {/* Próximas fichas */}
+          <div style={styles.ticketsCard}>
+            <h2 style={styles.cardTitle}>Próximas Fichas</h2>
+            <div style={styles.ticketList}>
+              {nextTickets.length > 0 ? (
+                nextTickets.slice(0, 5).map((ticket, index) => (
+                  <div 
+                    key={index} 
+                    style={{
+                      ...styles.ticketItem,
+                      backgroundColor: ticket.identPrioridade === 'PRIORITARIO' ? '#ff9e80' : '#81d4fa'
+                    }}
+                  >
+                    <span style={styles.ticketType}>
+                      {ticket.identPrioridade === 'PRIORITARIO' ? 'P' : 'N'}
+                    </span>
+                    {formatTicketNumber(ticket.numero, ticket.identPrioridade)}
+                  </div>
+                ))
+              ) : (
+                <div style={styles.emptyTickets}>
+                  Nenhuma ficha na fila
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -297,88 +404,231 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    backgroundColor: '#1e1e1e',
+    backgroundColor: '#f8fafc',
     minHeight: '100vh',
     padding: '20px',
-    color: '#ffffff',
+    color: '#334155',
+    fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gridTemplateRows: 'auto auto',
-    gap: '20px',
+    gridTemplateColumns: '2fr 1fr',
+    gap: '24px',
     width: '100%',
-    maxWidth: '1200px',
+    maxWidth: '1400px',
     margin: '0 auto',
   },
-  card: {
-    backgroundColor: '#2c2c2c',
-    padding: '20px',
-    borderRadius: '12px',
-    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
-    textAlign: 'center',
+  mainCard: {
+    backgroundColor: '#ffffff',
+    padding: '30px',
+    borderRadius: '20px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+    border: '1px solid #e2e8f0',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
   },
-  cardTitle: {
-    fontSize: '24px',
-    marginBottom: '20px',
-    color: '#4CAF50',
+  cardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '10px',
   },
-  ticketNumber: {
-    fontSize: '130px',
-    fontWeight: 'bold',
+  mainCardTitle: {
+    fontSize: '32px',
+    fontWeight: '700',
+    color: '#1e293b',
+    margin: 0,
+  },
+  guicheBadge: {
+    backgroundColor: '#3b82f6',
+    padding: '12px 24px',
+    borderRadius: '25px',
+    fontSize: '20px',
+    fontWeight: '600',
     color: '#ffffff',
-    margin: '20px 0',
   },
-  guiche: {
-    fontSize: '40px',
-    color: '#ffffff',
-    marginTop: '10px',
+  guicheNumber: {
+    fontSize: '26px',
+    fontWeight: '700',
   },
-  weatherIconContainer: {
+  ticketDisplay: {
+    backgroundColor: '#1e293b',
+    padding: '40px',
+    borderRadius: '15px',
+    border: '2px solid #334155',
+    minHeight: '200px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  ticketNumber: {
+    fontSize: '120px',
+    fontWeight: '900',
+    color: '#ffffff',
+    margin: 0,
+    textShadow: '0 4px 8px rgba(0, 0, 0, 0.5)',
+  },
+  carouselContainer: {
+    borderRadius: '12px',
+    overflow: 'hidden',
+    backgroundColor: '#f1f5f9',
+    padding: '10px',
+  },
+  sidebar: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '24px',
+  },
+  weatherCard: {
+    backgroundColor: '#ffffff',
+    padding: '25px',
+    borderRadius: '20px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+    border: '1px solid #e2e8f0',
+  },
+  timeCard: {
+    backgroundColor: '#ffffff',
+    padding: '25px',
+    borderRadius: '20px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+    border: '1px solid #e2e8f0',
+    textAlign: 'center',
+  },
+  ticketsCard: {
+    backgroundColor: '#ffffff',
+    padding: '25px',
+    borderRadius: '20px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+    border: '1px solid #e2e8f0',
+  },
+  cardTitle: {
+    fontSize: '24px',
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: '20px',
+    textAlign: 'center',
+  },
+  weatherContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+  },
+  citySection: {
+    textAlign: 'center',
     marginBottom: '10px',
   },
+  cityText: {
+    fontSize: '22px',
+    fontWeight: '600',
+    color: '#3b82f6',
+    margin: '0 0 5px 0',
+  },
+  updateInfo: {
+    fontSize: '12px',
+    color: '#94a3b8',
+    fontStyle: 'italic',
+  },
+  weatherMain: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '15px',
+  },
   weatherIcon: {
-    width: '200px',
-    height: '200px',
-    marginRight: '10px',
+    width: '100px',
+    height: '100px',
+  },
+  weatherTemp: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  tempText: {
+    fontSize: '48px',
+    fontWeight: '700',
+    color: '#1e293b',
+    margin: 0,
   },
   weatherDescription: {
     fontSize: '18px',
-    color: '#ffffff',
+    color: '#64748b',
     textTransform: 'capitalize',
+    margin: 0,
   },
-  infoText: {
-    fontSize: '25px',
-    margin: '10px 0',
-    color: '#ffffff',
+  weatherDetails: {
+    display: 'flex',
+    justifyContent: 'space-around',
+    gap: '15px',
   },
-
+  weatherDetail: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  detailLabel: {
+    fontSize: '14px',
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  detailValue: {
+    fontSize: '20px',
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  dateSection: {
+    marginBottom: '15px',
+  },
+  dateText: {
+    fontSize: '24px',
+    fontWeight: '600',
+    color: '#1e293b',
+    margin: 0,
+  },
+  timeSection: {
+    backgroundColor: '#f1f5f9',
+    padding: '15px',
+    borderRadius: '12px',
+    border: '1px solid #e2e8f0',
+  },
   timeText: {
-    fontSize: '50px',
-    margin: '10px 0',
-    color: '#ffffff',
-    textTransform: 'capitalize',
-  },
-  tempText: {
-    fontSize: '100px',
-    margin: '10px 0',
-    color: '#ffffff',
+    fontSize: '32px',
+    fontWeight: '700',
+    color: '#3b82f6',
+    margin: 0,
+    fontFamily: 'monospace',
   },
   ticketList: {
-    listStyle: 'none',
-    padding: '0',
-    margin: '0',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
   },
   ticketItem: {
-    fontSize: '24px',
-    margin: '10px 0',
-    padding: '10px',
-    backgroundColor: '#333',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '18px',
+    borderRadius: '12px',
+    fontSize: '22px',
+    fontWeight: '600',
+    color: '#1e293b',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+    transition: 'transform 0.2s ease',
+  },
+  ticketType: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    padding: '6px 10px',
     borderRadius: '8px',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+    fontSize: '16px',
+    fontWeight: '700',
+  },
+  emptyTickets: {
+    textAlign: 'center',
+    padding: '30px',
+    color: '#94a3b8',
+    fontSize: '18px',
+    fontStyle: 'italic',
   },
 };
 
