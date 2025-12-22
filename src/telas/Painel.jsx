@@ -1,206 +1,472 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import config from '../config/config';
 import Header from '../others/Header';
-import { isExpired, decodeToken } from "react-jwt";
+import { decodeToken } from "react-jwt";
 import Carrossel from '../others/Carrossel';
 
 function Painel() {
-  const [lastCalledTicket, setLastCalledTicket] = useState(' - ');
-  const [nextTickets, setNextTickets] = useState([]);
+  const [lastCalledTicket, setLastCalledTicket] = useState({
+    numero: ' - ',
+    prioridade: 'NORMAL',
+    guiche: '-',
+    tipo: 'NORMAL',
+    usuarioQueChamou: null
+  });
+  
+  const [nextTicketsByType, setNextTicketsByType] = useState({
+    NORMAL: [],
+    PRIORITARIO: [],
+    ATPVE: []
+  });
+  
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
-  const [guiche, setGuiche] = useState('-');
-  const { API_BASE_URL } = config;
-  const [isLastTicketVisible, setIsLastTicketVisible] = useState(true);
-  const [blinkCount, setBlinkCount] = useState(0);
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [weatherData, setWeatherData] = useState(null);
+  const [isBlinking, setIsBlinking] = useState(false);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [ticketCounts, setTicketCounts] = useState({
+    NORMAL: 0,
+    PRIORITARIO: 0,
+    ATPVE: 0
+  });
+  
+  const [soundPermission, setSoundPermission] = useState(true);
+  const [currentUser, setCurrentUser] = useState({
+    nome: 'Operador',
+    foto: null,
+    tipoUsuario: 'OPERADOR',
+    idUsuario: null,
+    guiche: '-'
+  });
+  
+  const [userLoading, setUserLoading] = useState(true);
+  
+  // NOVO: Histórico das últimas fichas chamadas
+  const [recentTickets, setRecentTickets] = useState([]);
+  
+  const { API_BASE_URL } = config;
+  const audioContextRef = useRef(null);
+  const audioCacheRef = useRef(null);
 
+  // API de Clima
   const API_KEY = 'c4200076a97c0a637b7c3aca46b9bc6c';
   const cidade = 'Canguçu,BR';
   const url_previsao_tempo = `https://api.openweathermap.org/data/2.5/weather?q=${cidade}&APPID=${API_KEY}&units=metric`;
 
+  // Dados do carrossel
   const midias = [
     {
       url: 'https://i.pinimg.com/originals/06/ec/d0/06ecd0afe6a0c76d51f943b5321fb318.gif',
       tipo: 'imagem',
+      titulo: 'Publicidade 1'
     },
     {
-      url: 'https://static.wixstatic.com/media/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif/v1/fill/w_280,h_151,q_90,enc_avif,quality_auto/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif',
+      url: 'https://static.wixstatic.com/media/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif',
       tipo: 'imagem',
+      titulo: 'Publicidade 2'
     },
     {
       url: 'https://i.gifer.com/X15M.gif',
       tipo: 'imagem',
-    },
-    {
-      url: 'https://static.wixstatic.com/media/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif/v1/fill/w_280,h_151,q_90,enc_avif,quality_auto/06f338_84ec404210a240d58ab5aa62ffab6f06~mv2.gif',
-      tipo: 'imagem',
+      titulo: 'Publicidade 3'
     }
   ];
 
-  const fetchWeatherData = async () => {
+  // ================= FUNÇÕES DE HISTÓRICO =================
+  
+  // Carregar histórico do localStorage
+  const loadRecentTickets = () => {
     try {
-      console.log('🔄 Atualizando dados do clima...');
-      const response = await fetch(url_previsao_tempo);
-      if (!response.ok) {
-        throw new Error(`Erro na requisição: ${response.status}`);
+      const stored = localStorage.getItem('recentTickets');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setRecentTickets(parsed);
       }
-      const data = await response.json();
-      setWeatherData(data);
-      console.log('✅ Dados do clima atualizados com sucesso');
     } catch (error) {
-      console.error('❌ Erro ao buscar dados do clima:', error);
+      console.error('Erro ao carregar histórico do localStorage:', error);
     }
   };
 
-  const fetchLastCalledTicket = async () => {
+  // Salvar histórico no localStorage
+  const saveRecentTickets = (tickets) => {
+    try {
+      localStorage.setItem('recentTickets', JSON.stringify(tickets));
+    } catch (error) {
+      console.error('Erro ao salvar histórico no localStorage:', error);
+    }
+  };
+
+  // Adicionar ficha ao histórico (com verificação de duplicação)
+  const addToRecentTickets = (ticket) => {
+    if (!ticket || !ticket.idFicha) {
+      console.log('Ticket inválido para histórico');
+      return;
+    }
+
+    setRecentTickets(prev => {
+      // Verificar se já existe (evitar duplicação)
+      const exists = prev.some(t => t.idFicha === ticket.idFicha);
+      if (exists) {
+        console.log(`Ticket ${ticket.idFicha} já está no histórico, ignorando...`);
+        return prev;
+      }
+
+      // Criar novo array com a nova ficha no início
+      const newRecent = [
+        {
+          idFicha: ticket.idFicha,
+          numero: ticket.numero,
+          prioridade: ticket.identPrioridade,
+          guiche: ticket.usuarioQueChamou?.guiche || '-',
+          usuario: ticket.usuarioQueChamou?.nome || 'Operador',
+          data: new Date().toISOString(),
+          usuarioFoto: ticket.usuarioQueChamou?.foto || null
+        },
+        ...prev.slice(0, 4) // Manter apenas as últimas 5
+      ];
+
+      // Salvar no localStorage
+      saveRecentTickets(newRecent);
+      return newRecent;
+    });
+  };
+
+  // Limpar histórico
+  const clearRecentTickets = () => {
+    if (window.confirm('Tem certeza que deseja limpar o histórico de fichas?')) {
+      setRecentTickets([]);
+      localStorage.removeItem('recentTickets');
+    }
+  };
+
+  // ================= FUNÇÕES DE USUÁRIO =================
+  
+  const fetchCurrentUser = async () => {
     const token = localStorage.getItem("jwtToken");
+    if (!token) {
+      setUserLoading(false);
+      return;
+    }
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/fichas/ultimaChamada`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      setUserLoading(true);
+      
+      const decodedToken = decodeToken(token);
+      
+      if (!decodedToken) {
+        setUserLoading(false);
+        return;
+      }
+
+      setCurrentUser({
+        nome: decodedToken.nome || 'Operador',
+        tipoUsuario: decodedToken.tipoUsuario || 'FUNCIONARIO',
+        idUsuario: decodedToken.idUsuario,
+        guiche: decodedToken.guiche || '-',
+        foto: null
       });
-      setLastCalledTicket(formatTicketNumber(response.data.numero, response.data.identPrioridade));
-      const userData = decodeToken(token);
-      setGuiche(userData.guiche || 'Nenhum guichê definido');
-      speakFicha(response.data.numero, response.data.identPrioridade, userData.guiche);
+      
     } catch (error) {
-      console.error('Erro ao buscar a última ficha chamada:', error);
+      console.error('❌ Erro ao decodificar token:', error);
+    } finally {
+      setUserLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (!lastCalledTicket || lastCalledTicket === " - ") return;
-
-    setBlinkCount(0);
-    setIsLastTicketVisible(true);
-
-    const interval = setInterval(() => {
-      setIsLastTicketVisible((prev) => !prev);
-      setBlinkCount((prev) => prev + 1);
-    }, 500);
-
-    const timeout = setTimeout(() => {
-      clearInterval(interval);
-      setIsLastTicketVisible(true);
-    }, 2500);
-
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timeout);
+  // Função para processar o usuário que chamou a ficha - COM FOTO DO JSON
+  const processCalledByUser = (usuarioData) => {
+    if (!usuarioData) return null;
+    
+    let fotoUrl = null;
+    
+    if (usuarioData.foto && typeof usuarioData.foto === 'string') {
+      try {
+        if (usuarioData.foto.startsWith('data:image')) {
+          fotoUrl = usuarioData.foto;
+        } else {
+          fotoUrl = `data:image/jpeg;base64,${usuarioData.foto}`;
+        }
+      } catch (error) {
+        console.error('Erro ao processar foto do usuário:', error);
+        fotoUrl = null;
+      }
+    }
+    
+    return {
+      nome: usuarioData.nome || 'Operador',
+      tipoUsuario: usuarioData.tipoUsuario || 'FUNCIONARIO',
+      idUsuario: usuarioData.idUsuario,
+      guiche: usuarioData.guiche || '-',
+      email: usuarioData.email || '',
+      foto: fotoUrl
     };
-  }, [lastCalledTicket]);
+  };
 
-  const fetchNextTickets = async () => {
-    const token = localStorage.getItem("jwtToken");
+  // Função auxiliar para formatar tipo de usuário
+  const formatUserType = (tipo) => {
+    const tipos = {
+      'GERENTE': 'Gerente',
+      'FUNCIONARIO': 'Funcionário',
+      'MANAGER': 'Manager',
+      'ADMIN': 'Administrador'
+    };
+    return tipos[tipo] || tipo;
+  };
 
+  // ================= FUNÇÕES DE SOM =================
+  
+  const initAudioContext = () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/fichas`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      setNextTickets(sortTickets(response.data));
+      if (!audioContextRef.current && (window.AudioContext || window.webkitAudioContext)) {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
     } catch (error) {
-      console.error('Erro ao buscar as fichas:', error);
+      console.error('Erro ao inicializar AudioContext:', error);
     }
   };
 
+  const playNotificationSound = async (ticketData = null) => {
+    if (!soundPermission) {
+      showVisualNotification(ticketData);
+      return;
+    }
+
+    try {
+      const audio = new Audio(`${API_BASE_URL}/api/audio/notification`);
+      audio.play();
+      
+      if (ticketData) {
+        showVisualNotification(ticketData);
+      }
+    } catch (error) {
+      playFallbackBeep();
+      if (ticketData) {
+        showVisualNotification(ticketData);
+      }
+    }
+  };
+
+  const playFallbackBeep = () => {
+    try {
+      if (!audioContextRef.current) {
+        initAudioContext();
+      }
+      
+      const audioContext = audioContextRef.current;
+      if (!audioContext) return;
+      
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      
+      const now = audioContext.currentTime;
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(0.3, now + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+      
+      oscillator.start(now);
+      oscillator.stop(now + 0.5);
+      
+      oscillator.onended = () => {
+        oscillator.disconnect();
+        gainNode.disconnect();
+      };
+      
+    } catch (error) {
+      console.error('Erro no fallback beep:', error);
+    }
+  };
+
+  const showVisualNotification = (ticketData) => {
+    try {
+      const ticketInfo = ticketData || lastCalledTicket;
+      const ticketNumber = formatTicketNumber(ticketInfo.numero, ticketInfo.prioridade);
+      const guiche = ticketInfo.usuarioQueChamou?.guiche || currentUser.guiche || '-';
+      
+      const existingNotification = document.getElementById('visual-notification');
+      if (existingNotification) {
+        existingNotification.remove();
+      }
+      
+      const notification = document.createElement('div');
+      notification.id = 'visual-notification';
+      notification.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 30px;
+        background: linear-gradient(135deg, ${getPriorityColor(ticketInfo.prioridade)}, #3b82f6);
+        color: white;
+        padding: 20px;
+        border-radius: 15px;
+        z-index: 10000;
+        animation: notificationSlideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        max-width: 300px;
+        border: 2px solid rgba(255,255,255,0.2);
+        backdrop-filter: blur(10px);
+      `;
+      
+      notification.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <div style="font-size: 32px; animation: bellShake 0.5s ease-in-out 3;">🔔</div>
+          <div>
+            <div style="font-size: 18px; font-weight: 700; margin-bottom: 5px;">NOVA FICHA CHAMADA</div>
+            <div style="font-size: 24px; font-weight: 800; margin: 5px 0;">${ticketNumber}</div>
+            <div style="font-size: 14px; opacity: 0.9;">Guichê: ${guiche}</div>
+            <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">${formatDateTime(new Date())}</div>
+          </div>
+          <button onclick="this.parentElement.parentElement.remove()" 
+            style="background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; margin-left: auto;">
+            ×
+          </button>
+        </div>
+      `;
+      
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          notification.style.animation = 'notificationSlideOut 0.3s ease-in';
+          setTimeout(() => notification.remove(), 300);
+        }
+      }, 5000);
+      
+    } catch (error) {
+      console.error('Erro na notificação visual:', error);
+    }
+  };
+
+  // ================= FUNÇÕES AUXILIARES =================
+  
   const formatTicketNumber = (numero, prioridade) => {
-    const formattedNumber = numero.toString().padStart(5, '0');
-    return prioridade === 'PRIORITARIO' ? `P${formattedNumber}` : `N${formattedNumber}`;
+    const formattedNumber = numero.toString().padStart(3, '0');
+    const prefix = getPriorityPrefix(prioridade);
+    return `${prefix}${formattedNumber}`;
+  };
+
+  const getPriorityPrefix = (priority) => {
+    const prefixes = {
+      'NORMAL': 'N',
+      'PRIORITARIO': 'P',
+      'ATPVE': 'A'
+    };
+    return prefixes[priority] || 'N';
+  };
+
+  const getPriorityLabel = (priority) => {
+    const labels = {
+      'NORMAL': 'Normal',
+      'PRIORITARIO': 'Prioritário',
+      'ATPVE': 'AT/PE'
+    };
+    return labels[priority] || priority;
+  };
+
+  const getPriorityColor = (priority) => {
+    const colors = {
+      'NORMAL': '#4CAF50',
+      'PRIORITARIO': '#FF5722',
+      'ATPVE': '#2196F3'
+    };
+    return colors[priority] || '#4CAF50';
   };
 
   const sortTickets = (tickets) => {
-    const priorityTickets = tickets.filter(ticket => ticket.identPrioridade === 'PRIORITARIO');
-    const normalTickets = tickets.filter(ticket => ticket.identPrioridade === 'NORMAL');
-    return [...priorityTickets, ...normalTickets];
+    const priorityOrder = ['PRIORITARIO', 'ATPVE', 'NORMAL'];
+    return [...tickets].sort((a, b) => {
+      return priorityOrder.indexOf(a.identPrioridade) - priorityOrder.indexOf(b.identPrioridade);
+    });
   };
 
-  const speakFicha = (numero, prioridade, guiche) => {
-    const ticketFormatado = formatTicketNumber(numero, prioridade);
-    
-    // Texto formatado para uma fala mais natural
-    const texto = `Ficha ${ticketFormatado}, dirija-se ao guichê ${guiche}`;
-    
-    // Criar utterance
-    const utterance = new SpeechSynthesisUtterance(texto);
-    utterance.lang = 'pt-BR';
-    utterance.rate = 0.9; // Velocidade um pouco mais lenta para melhor compreensão
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-
-    // Tentar usar voz do Google se disponível
-    const voices = speechSynthesis.getVoices();
-    
-    // Procurar por vozes em português do Brasil com qualidade do Google
-    const googleVoice = voices.find(voice => 
-      voice.lang.includes('pt-BR') && 
-      (
-        voice.name.includes('Google') || 
-        voice.name.includes('Natural') || 
-        voice.name.includes('Premium') ||
-        voice.voiceURI.includes('google')
-      )
-    );
-
-    // Se não encontrar voz do Google, usar qualquer voz em português
-    const portugueseVoice = voices.find(voice => 
-      voice.lang.includes('pt-BR')
-    );
-
-    // Priorizar voz do Google, depois qualquer voz em português
-    if (googleVoice) {
-      utterance.voice = googleVoice;
-      console.log('🎤 Usando voz do Google:', googleVoice.name);
-    } else if (portugueseVoice) {
-      utterance.voice = portugueseVoice;
-      console.log('🎤 Usando voz em português:', portugueseVoice.name);
-    } else {
-      console.log('🎤 Usando voz padrão do sistema');
-    }
-
-    // Eventos para debug
-    utterance.onstart = () => {
-      console.log('🔊 Iniciando fala da ficha:', texto);
+  const organizeTicketsByType = (tickets) => {
+    const organized = {
+      NORMAL: [],
+      PRIORITARIO: [],
+      ATPVE: []
     };
 
-    utterance.onend = () => {
-      console.log('✅ Fala concluída');
-    };
+    tickets.forEach(ticket => {
+      if (organized[ticket.identPrioridade]) {
+        organized[ticket.identPrioridade].push(ticket);
+      }
+    });
 
-    utterance.onerror = (event) => {
-      console.error('❌ Erro na síntese de voz:', event.error);
-    };
+    Object.keys(organized).forEach(key => {
+      organized[key] = organized[key].sort((a, b) => a.numero - b.numero);
+    });
 
-    // Parar qualquer fala anterior antes de iniciar nova
-    speechSynthesis.cancel();
-    
-    // Pequeno delay para garantir que a fala anterior foi cancelada
-    setTimeout(() => {
-      speechSynthesis.speak(utterance);
-    }, 100);
+    return organized;
   };
 
-  // Carregar vozes quando disponíveis
-  useEffect(() => {
-    const loadVoices = () => {
-      const voices = speechSynthesis.getVoices();
-      console.log('🗣️ Vozes disponíveis:', voices.map(v => `${v.name} (${v.lang})`));
-    };
-
-    // Carregar vozes quando estiverem disponíveis
-    if (speechSynthesis.onvoiceschanged !== undefined) {
-      speechSynthesis.onvoiceschanged = loadVoices;
+  const fetchWeatherData = async () => {
+    try {
+      const response = await fetch(url_previsao_tempo);
+      if (!response.ok) throw new Error(`Erro: ${response.status}`);
+      const data = await response.json();
+      setWeatherData(data);
+    } catch (error) {
+      console.error('Erro ao buscar dados do clima:', error);
     }
+  };
 
-    // Carregar vozes imediatamente se já estiverem disponíveis
-    loadVoices();
-  }, []);
+  // Buscar última ficha chamada - ATUALIZADA
+  const fetchLastCalledTicket = async () => {
+    const token = localStorage.getItem("jwtToken");
+    if (!token) return;
 
+    try {
+      const response = await axios.get(`${API_BASE_URL}/fichas/ultimaChamada`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const ticketData = response.data;
+      
+      const calledBy = ticketData.usuarioQueChamou ? 
+        processCalledByUser(ticketData.usuarioQueChamou) : null;
+      
+      setLastCalledTicket({
+        numero: ticketData.numero || ' - ',
+        prioridade: ticketData.identPrioridade || 'NORMAL',
+        guiche: calledBy?.guiche || currentUser.guiche || '-',
+        tipo: ticketData.identPrioridade || 'NORMAL',
+        usuarioQueChamou: calledBy
+      });
+      
+    } catch (error) {
+      console.error('Erro ao buscar última ficha:', error);
+    }
+  };
+
+  const fetchNextTickets = async () => {
+    const token = localStorage.getItem("jwtToken");
+    if (!token) return;
+
+    try {
+      const response = await axios.get(`${API_BASE_URL}/fichas`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const sortedTickets = sortTickets(response.data);
+      const organized = organizeTicketsByType(sortedTickets);
+      
+      setNextTicketsByType(organized);
+      
+      setTicketCounts({
+        NORMAL: organized.NORMAL.length,
+        PRIORITARIO: organized.PRIORITARIO.length,
+        ATPVE: organized.ATPVE.length
+      });
+    } catch (error) {
+      console.error('Erro ao buscar fichas:', error);
+    }
+  };
+
+  // Formatadores
   const formatDateTime = (date) => {
     const options = {
       timeZone: 'America/Sao_Paulo',
@@ -212,423 +478,1271 @@ function Painel() {
       second: '2-digit',
       hour12: false,
     };
-
     return new Intl.DateTimeFormat('pt-BR', options).format(date);
   };
 
-  // Atualiza a data e hora a cada segundo
+  const formatRelativeTime = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Agora mesmo';
+    if (diffMins === 1) return 'Há 1 minuto';
+    if (diffMins < 60) return `Há ${diffMins} minutos`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours === 1) return 'Há 1 hora';
+    if (diffHours < 24) return `Há ${diffHours} horas`;
+    
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return 'Ontem';
+    return `Há ${diffDays} dias`;
+  };
+
+  const formatTemperature = (temp) => `${Math.round(temp)}°C`;
+  const iconUrl = (iconCode) => `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+
+  // ================= EFFECTS =================
+  
   useEffect(() => {
+    initAudioContext();
+    
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes notificationSlideIn {
+        from { transform: translateX(100%) translateY(-20px); opacity: 0; }
+        to { transform: translateX(0) translateY(0); opacity: 1; }
+      }
+      @keyframes notificationSlideOut {
+        from { transform: translateX(0) translateY(0); opacity: 1; }
+        to { transform: translateX(100%) translateY(-20px); opacity: 0; }
+      }
+      @keyframes bellShake {
+        0%, 100% { transform: rotate(0deg); }
+        25% { transform: rotate(15deg); }
+        75% { transform: rotate(-15deg); }
+      }
+    `;
+    document.head.appendChild(style);
+
     const timer = setInterval(() => {
       setCurrentDateTime(new Date());
     }, 1000);
 
-    return () => clearInterval(timer);
+    fetchWeatherData();
+    const weatherInterval = setInterval(fetchWeatherData, 300000);
+
+    // Carregar histórico ao iniciar
+    loadRecentTickets();
+
+    return () => {
+      clearInterval(timer);
+      clearInterval(weatherInterval);
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
   }, []);
 
-  // Busca inicial dos dados
   useEffect(() => {
-    fetchLastCalledTicket();
-    fetchNextTickets();
-    fetchWeatherData(); // Busca inicial dos dados do clima
-  }, [guiche]);
-
-  // Atualiza a previsão do tempo a cada 5 minutos (300000 ms)
-  useEffect(() => {
-    const weatherInterval = setInterval(() => {
-      fetchWeatherData();
-    }, 300000); // 5 minutos = 300000 milissegundos
-
-    // Limpa o intervalo quando o componente for desmontado
-    return () => clearInterval(weatherInterval);
+    fetchCurrentUser();
   }, []);
 
-  // Conecta ao SSE para receber atualizações em tempo real
+  useEffect(() => {
+    if (!userLoading) {
+      fetchLastCalledTicket();
+      fetchNextTickets();
+    }
+  }, [userLoading, currentUser]);
+
+  useEffect(() => {
+    if (lastCalledTicket.numero !== ' - ') {
+      setIsBlinking(true);
+      const timer = setTimeout(() => setIsBlinking(false), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [lastCalledTicket]);
+
   useEffect(() => {
     let eventSource;
     let reconnectTimeout;
 
     const connectToSSE = () => {
-      eventSource = new EventSource(`${API_BASE_URL}/fichas/stream`);
+      const token = localStorage.getItem("jwtToken");
+      if (!token) return;
+
+      eventSource = new EventSource(`${API_BASE_URL}/fichas/stream?token=${token}`);
 
       eventSource.addEventListener('newFicha', (event) => {
         const newFicha = JSON.parse(event.data);
-        setNextTickets((prevTickets) => {
-          if (!prevTickets.find(ticket => ticket.idFicha === newFicha.idFicha)) {
-            return sortTickets([...prevTickets, newFicha]);
+        
+        setNextTicketsByType(prev => {
+          const updated = { ...prev };
+          if (updated[newFicha.identPrioridade]) {
+            updated[newFicha.identPrioridade] = 
+              [...updated[newFicha.identPrioridade], newFicha]
+                .sort((a, b) => a.numero - b.numero);
           }
-          return prevTickets;
+          return updated;
         });
+
+        setTicketCounts(prev => ({
+          ...prev,
+          [newFicha.identPrioridade]: prev[newFicha.identPrioridade] + 1
+        }));
       });
 
       eventSource.addEventListener('fichaChamada', (event) => {
         const calledTicket = JSON.parse(event.data);
-        const userData = decodeToken(localStorage.getItem("jwtToken"));
-        setGuiche(userData.guiche || 'Nenhum guichê definido');
-        setLastCalledTicket(formatTicketNumber(calledTicket.numero, calledTicket.identPrioridade));
-        setNextTickets((prevTickets) => sortTickets(prevTickets.filter(ticket => ticket.idFicha !== calledTicket.idFicha)));
-        speakFicha(calledTicket.numero, calledTicket.identPrioridade, userData.guiche);
+        
+        const calledBy = calledTicket.usuarioQueChamou ? 
+          processCalledByUser(calledTicket.usuarioQueChamou) : null;
+
+        const ticketInfo = {
+          numero: calledTicket.numero,
+          prioridade: calledTicket.identPrioridade,
+          guiche: calledBy?.guiche || currentUser.guiche || '-',
+          tipo: calledTicket.identPrioridade,
+          usuarioQueChamou: calledBy
+        };
+
+        setLastCalledTicket(ticketInfo);
+
+        setNextTicketsByType(prev => {
+          const updated = { ...prev };
+          if (updated[calledTicket.identPrioridade]) {
+            updated[calledTicket.identPrioridade] = 
+              updated[calledTicket.identPrioridade]
+                .filter(t => t.idFicha !== calledTicket.idFicha);
+          }
+          return updated;
+        });
+
+        setTicketCounts(prev => ({
+          ...prev,
+          [calledTicket.identPrioridade]: Math.max(0, prev[calledTicket.identPrioridade] - 1)
+        }));
+
+        // ADICIONAR AO HISTÓRICO (com verificação de duplicação)
+        addToRecentTickets(calledTicket);
+
+        playNotificationSound(ticketInfo);
       });
 
       eventSource.onerror = (error) => {
-        console.error('Erro na conexão SSE:', error);
+        console.error('Erro SSE:', error);
         eventSource.close();
-
-        setReconnectAttempts((prev) => prev + 1);
+        
+        setReconnectAttempts(prev => prev + 1);
         reconnectTimeout = setTimeout(() => {
-          console.log('Reconectando ao SSE...');
+          console.log('Reconectando SSE...');
           connectToSSE();
         }, 1000);
       };
     };
 
-    connectToSSE();
+    if (!userLoading) {
+      connectToSSE();
+    }
 
     return () => {
       if (eventSource) eventSource.close();
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
     };
-  }, [reconnectAttempts]);
+  }, [soundPermission, userLoading, currentUser]);
 
-  const iconUrl = (iconCode) => `http://openweathermap.org/img/wn/${iconCode}@2x.png`;
-
+  // ================= RENDER =================
+  
   return (
     <div style={styles.container}>
+      <Header />
+      
+      <div style={styles.soundControl}>
+        <button
+          onClick={() => setSoundPermission(!soundPermission)}
+          style={{
+            ...styles.soundButton,
+            backgroundColor: soundPermission ? '#4CAF50' : '#f44336'
+          }}
+          title={soundPermission ? "Clique para desativar som" : "Clique para ativar som"}
+        >
+          {soundPermission ? '🔊 Som Ativado' : '🔇 Som Desativado'}
+        </button>
+        <button
+          onClick={() => playNotificationSound()}
+          style={styles.testSoundButton}
+          title="Testar som de notificação"
+        >
+          🔊 Testar Som
+        </button>
+      </div>
+      
+      <div style={styles.content}>
+        <div style={styles.mainSection}>
+          <div style={styles.ticketCard}>
+            <div style={styles.cardHeader}>
+              <h2 style={styles.cardTitle}>ATENDIMENTO ATUAL</h2>
+              
+              <div style={styles.userInfoContainer}>
+                {userLoading ? (
+                  <div style={styles.userLoading}>
+                    <div style={styles.spinner}></div>
+                    <span>Carregando...</span>
+                  </div>
+                ) : (
+                  <div style={styles.userBadge}>
+                    <div style={styles.userPhotoContainer}>
+                      {currentUser.foto ? (
+                        <img 
+                          src={currentUser.foto} 
+                          alt={currentUser.nome}
+                          style={styles.userPhoto}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            const placeholder = e.target.nextElementSibling;
+                            if (placeholder) placeholder.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div style={{
+                        ...styles.userPhotoPlaceholder,
+                        display: !currentUser.foto ? 'flex' : 'none'
+                      }}>
+                        <span style={styles.userInitial}>
+                          {currentUser.nome.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    <div style={styles.userDetails}>
+                      <span style={styles.userName}>{currentUser.nome}</span>
+                      <span style={styles.userRole}>
+                        {formatUserType(currentUser.tipoUsuario)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div style={styles.ticketAndUserContainer}>
+              <div style={{
+                ...styles.ticketDisplay,
+                backgroundColor: getPriorityColor(lastCalledTicket.prioridade),
+                animation: isBlinking ? 'blinkEffect 0.5s ease-in-out 5' : 'none',
+                flex: 2
+              }}>
+                <h1 style={styles.ticketNumber}>
+                  {formatTicketNumber(lastCalledTicket.numero, lastCalledTicket.prioridade)}
+                </h1>
+                <p style={styles.ticketType}>
+                  {getPriorityLabel(lastCalledTicket.prioridade)}
+                </p>
+              </div>
+              
+              <div style={styles.userCard}>
+                <div style={styles.userCardHeader}>
+                  <span style={styles.userCardTitle}>
+                    {lastCalledTicket.usuarioQueChamou ? 'OPERADOR QUE CHAMOU' : 'AGUARDANDO CHAMADA'}
+                  </span>
+                </div>
+                <div style={styles.userCardContent}>
+                  {lastCalledTicket.usuarioQueChamou ? (
+                    <>
+                      <div style={styles.userCardPhoto}>
+                        {lastCalledTicket.usuarioQueChamou.foto ? (
+                          <img 
+                            src={lastCalledTicket.usuarioQueChamou.foto} 
+                            alt={lastCalledTicket.usuarioQueChamou.nome}
+                            style={styles.userCardPhotoImage}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              const placeholder = e.target.nextElementSibling;
+                              if (placeholder) placeholder.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div style={{
+                          ...styles.userCardPhotoPlaceholder,
+                          display: !lastCalledTicket.usuarioQueChamou.foto ? 'flex' : 'none'
+                        }}>
+                          <span style={styles.userCardInitial}>
+                            {lastCalledTicket.usuarioQueChamou.nome.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={styles.userCardInfo}>
+                        <h3 style={styles.userCardName}>{lastCalledTicket.usuarioQueChamou.nome}</h3>
+                        <div style={styles.userCardBadge}>
+                          <span style={styles.userCardRole}>
+                            {formatUserType(lastCalledTicket.usuarioQueChamou.tipoUsuario)}
+                          </span>
+                        </div>
+                        <div style={styles.userCardMeta}>
+                          <span style={styles.userCardMetaItem}>
+                            <span style={styles.metaIcon}>📍</span>
+                            Guichê {lastCalledTicket.usuarioQueChamou.guiche}
+                          </span>
+                          {lastCalledTicket.usuarioQueChamou.email && (
+                            <span style={styles.userCardMetaItem}>
+                              <span style={styles.metaIcon}>✉️</span>
+                              {lastCalledTicket.usuarioQueChamou.email}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={styles.noCaller}>
+                      <div style={styles.noCallerIcon}>📞</div>
+                      <span style={styles.noCallerText}>
+                        Aguardando próxima chamada...
+                      </span>
+                      <span style={styles.noCallerSubtext}>
+                        Quando uma ficha for chamada, o operador aparecerá aqui
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
 
-      <div style={styles.grid}>
-        {/* Última ficha chamada - Card Principal */}
-        <div style={styles.mainCard}>
-          <div style={styles.cardHeader}>
-            <h2 style={styles.mainCardTitle}>Última Ficha Chamada</h2>
-            <div style={styles.guicheBadge}>
-              Guichê: <span style={styles.guicheNumber}>{guiche}</span>
+            <div style={styles.infoBar}>
+              <div style={styles.infoItem}>
+                <span style={styles.infoLabel}>Última atualização:</span>
+                <span style={styles.infoValue}>{formatDateTime(currentDateTime)}</span>
+              </div>
+              <div style={styles.infoItem}>
+                <span style={styles.infoLabel}>Total na fila:</span>
+                <span style={styles.infoValue}>
+                  {ticketCounts.NORMAL + ticketCounts.PRIORITARIO + ticketCounts.ATPVE} fichas
+                </span>
+              </div>
+              {lastCalledTicket.usuarioQueChamou && (
+                <div style={styles.infoItem}>
+                  <span style={styles.infoLabel}>Operador ativo:</span>
+                  <span style={styles.infoValue}>{lastCalledTicket.usuarioQueChamou.nome}</span>
+                </div>
+              )}
             </div>
           </div>
-          
-          <div style={styles.ticketDisplay}>
-            <p style={{
-              ...styles.ticketNumber,
-              opacity: isLastTicketVisible ? 1 : 0,
-              transition: "opacity 0.3s ease-in-out"
-            }}>
-              {lastCalledTicket}
-            </p>
+
+          {/* HISTÓRICO DE ULTIMAS FICHAS CHAMADAS */}
+          <div style={styles.recentTicketsCard}>
+            <div style={styles.recentTicketsHeader}>
+              <h3 style={styles.recentTicketsTitle}>
+                <span style={styles.historyIcon}>📋</span>
+                ÚLTIMAS FICHAS CHAMADAS
+              </h3>
+              <div style={styles.recentTicketsControls}>
+                <span style={styles.recentTicketsCount}>
+                  {recentTickets.length} fichas
+                </span>
+                {recentTickets.length > 0 && (
+                  <button
+                    onClick={clearRecentTickets}
+                    style={styles.clearHistoryButton}
+                    title="Limpar histórico"
+                  >
+                    🗑️ Limpar
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            <div style={styles.recentTicketsList}>
+              {recentTickets.length > 0 ? (
+                recentTickets.map((ticket, index) => (
+                  <div key={ticket.idFicha} style={styles.recentTicketItem}>
+                    <div style={styles.recentTicketNumber}>
+                      <span style={styles.ticketPrefix}>
+                        {getPriorityPrefix(ticket.prioridade)}
+                      </span>
+                      <span style={styles.ticketNum}>
+                        {ticket.numero.toString().padStart(3, '0')}
+                      </span>
+                    </div>
+                    
+                    <div style={styles.recentTicketInfo}>
+                      <div style={styles.recentTicketMeta}>
+                        <span style={styles.recentTicketGuiche}>
+                          Guichê: {ticket.guiche}
+                        </span>
+                        <span style={styles.recentTicketTime}>
+                          {formatRelativeTime(ticket.data)}
+                        </span>
+                      </div>
+                      
+                      <div style={styles.recentTicketUser}>
+                        {ticket.usuarioFoto ? (
+                          <img 
+                            src={ticket.usuarioFoto} 
+                            alt={ticket.usuario}
+                            style={styles.recentUserPhoto}
+                          />
+                        ) : (
+                          <div style={styles.recentUserInitial}>
+                            {ticket.usuario.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span style={styles.recentUserName}>
+                          {ticket.usuario}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div style={{
+                      ...styles.recentTicketBadge,
+                      backgroundColor: getPriorityColor(ticket.prioridade)
+                    }}>
+                      <span style={styles.priorityText}>
+                        {getPriorityLabel(ticket.prioridade)}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div style={styles.noRecentTickets}>
+                  <div style={styles.noRecentIcon}>📭</div>
+                  <span style={styles.noRecentText}>
+                    Nenhuma ficha chamada recentemente
+                  </span>
+                  <span style={styles.noRecentSubtext}>
+                    As fichas chamadas aparecerão aqui
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div style={styles.carouselContainer}>
-            <Carrossel midias={midias} />
+          {/* CARROSSEL DE MÍDIA */}
+          <div style={styles.mediaSection}>
+            <div style={styles.mediaHeader}>
+              <h3 style={styles.mediaTitle}>INFORMAÇÕES E PUBLICIDADE</h3>
+              <span style={styles.mediaCounter}>1/{midias.length}</span>
+            </div>
+            <div style={styles.carouselContainer}>
+              <Carrossel midias={midias} />
+            </div>
           </div>
         </div>
 
-        {/* Informações do Clima e Tempo */}
+        {/* SIDEBAR */}
         <div style={styles.sidebar}>
-          <div style={styles.weatherCard}>
-            <h2 style={styles.cardTitle}>Previsão do Tempo</h2>
+          {/* PREVISÃO DO TEMPO */}
+          <div style={styles.weatherCardLarge}>
+            <div style={styles.weatherHeaderLarge}>
+              <h3 style={styles.widgetTitleLarge}>PREVISÃO DO TEMPO</h3>
+              <span style={styles.weatherLocationLarge}>Canguçu, RS</span>
+            </div>
+            
             {weatherData && (
-              <div style={styles.weatherContent}>
-                <div style={styles.citySection}>
-                  <p style={styles.cityText}>Canguçu, RS</p>
-                  <small style={styles.updateInfo}>Atualiza a cada 5 min</small>
-                </div>
-                <div style={styles.weatherMain}>
+              <div style={styles.weatherContentLarge}>
+                <div style={styles.weatherMainLarge}>
                   <img
                     src={iconUrl(weatherData.weather[0].icon)}
                     alt={weatherData.weather[0].description}
-                    style={styles.weatherIcon}
+                    style={styles.weatherIconLarge}
                   />
-                  <div style={styles.weatherTemp}>
-                    <p style={styles.tempText}>{Math.round(weatherData.main.temp)}°C</p>
-                    <p style={styles.weatherDescription}>
+                  <div style={styles.weatherTempLarge}>
+                    <span style={styles.tempValueLarge}>
+                      {formatTemperature(weatherData.main.temp)}
+                    </span>
+                    <span style={styles.weatherDescLarge}>
                       {weatherData.weather[0].description}
-                    </p>
+                    </span>
                   </div>
                 </div>
                 
-                <div style={styles.weatherDetails}>
-                  <div style={styles.weatherDetail}>
-                    <span style={styles.detailLabel}>Sensação Térmica</span>
-                    <span style={styles.detailValue}>{Math.round(weatherData.main.feels_like)}°C</span>
+                <div style={styles.weatherDetailsLarge}>
+                  <div style={styles.detailItemLarge}>
+                    <span style={styles.detailLabelLarge}>Sensação</span>
+                    <span style={styles.detailValueLarge}>
+                      {formatTemperature(weatherData.main.feels_like)}
+                    </span>
                   </div>
-                  <div style={styles.weatherDetail}>
-                    <span style={styles.detailLabel}>Umidade</span>
-                    <span style={styles.detailValue}>{weatherData.main.humidity}%</span>
+                  <div style={styles.detailItemLarge}>
+                    <span style={styles.detailLabelLarge}>Umidade</span>
+                    <span style={styles.detailValueLarge}>{weatherData.main.humidity}%</span>
+                  </div>
+                  <div style={styles.detailItemLarge}>
+                    <span style={styles.detailLabelLarge}>Vento</span>
+                    <span style={styles.detailValueLarge}>{weatherData.wind.speed} m/s</span>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Data e Hora */}
+          {/* RELÓGIO E DATA */}
           <div style={styles.timeCard}>
-            <div style={styles.dateSection}>
-              <p style={styles.dateText}>{formatDateTime(currentDateTime).split(',')[0]}</p>
+            <div style={styles.dateDisplay}>
+              <span style={styles.dateText}>
+                {formatDateTime(currentDateTime).split(',')[0]}
+              </span>
             </div>
-            <div style={styles.timeSection}>
-              <p style={styles.timeText}>{formatDateTime(currentDateTime).split(' ')[1]}</p>
+            <div style={styles.timeDisplay}>
+              <span style={styles.timeText}>
+                {formatDateTime(currentDateTime).split(' ')[1]}
+              </span>
+              <span style={styles.secondText}>
+                {formatDateTime(currentDateTime).split(' ')[2]}
+              </span>
             </div>
-          </div>
-
-          {/* Próximas fichas */}
-          <div style={styles.ticketsCard}>
-            <h2 style={styles.cardTitle}>Próximas Fichas</h2>
-            <div style={styles.ticketList}>
-              {nextTickets.length > 0 ? (
-                nextTickets.slice(0, 5).map((ticket, index) => (
-                  <div 
-                    key={index} 
-                    style={{
-                      ...styles.ticketItem,
-                      backgroundColor: ticket.identPrioridade === 'PRIORITARIO' ? '#ff9e80' : '#81d4fa'
-                    }}
-                  >
-                    <span style={styles.ticketType}>
-                      {ticket.identPrioridade === 'PRIORITARIO' ? 'P' : 'N'}
-                    </span>
-                    {formatTicketNumber(ticket.numero, ticket.identPrioridade)}
-                  </div>
-                ))
-              ) : (
-                <div style={styles.emptyTickets}>
-                  Nenhuma ficha na fila
-                </div>
-              )}
+            <div style={styles.weekDay}>
+              {currentDateTime.toLocaleDateString('pt-BR', { 
+                weekday: 'long',
+                timeZone: 'America/Sao_Paulo'
+              }).toUpperCase()}
             </div>
           </div>
         </div>
       </div>
+
+      {/* RODAPÉ */}
+      <div style={styles.footer}>
+        <div style={styles.footerContent}>
+          <span style={styles.footerText}>
+            Sistema de Atendimento • {formatDateTime(currentDateTime).split(',')[0]} • 
+            Conectado via SSE • {reconnectAttempts > 0 ? `(${reconnectAttempts} reconexões)` : 'Conexão estável'} •
+            Som: {soundPermission ? 'Ativado' : 'Desativado'} •
+            {lastCalledTicket.usuarioQueChamou ? 
+              `Chamado por: ${lastCalledTicket.usuarioQueChamou.nome} (Guichê ${lastCalledTicket.usuarioQueChamou.guiche})` : 
+              'Aguardando chamada'} •
+            Histórico: {recentTickets.length} fichas
+          </span>
+        </div>
+      </div>
+
+      <style>
+        {`
+          @keyframes blinkEffect {
+            0% { 
+              box-shadow: 0 0 20px rgba(255, 255, 255, 0.8),
+                         inset 0 0 20px rgba(255, 255, 255, 0.4);
+            }
+            50% { 
+              box-shadow: 0 0 40px rgba(255, 255, 255, 1),
+                         inset 0 0 40px rgba(255, 255, 255, 0.8);
+            }
+            100% { 
+              box-shadow: 0 0 20px rgba(255, 255, 255, 0.8),
+                         inset 0 0 20px rgba(255, 255, 255, 0.4);
+            }
+          }
+
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}
+      </style>
     </div>
   );
 }
 
+// ================= STYLES =================
+
 const styles = {
   container: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    backgroundColor: '#f8fafc',
     minHeight: '100vh',
-    padding: '20px',
-    color: '#334155',
-    fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 1fr',
-    gap: '24px',
-    width: '100%',
-    maxWidth: '1400px',
-    margin: '0 auto',
-  },
-  mainCard: {
-    backgroundColor: '#ffffff',
-    padding: '30px',
-    borderRadius: '20px',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-    border: '1px solid #e2e8f0',
+    backgroundColor: '#0f172a',
+    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+    fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
+    color: '#f8fafc',
     display: 'flex',
     flexDirection: 'column',
-    gap: '20px',
+  },
+  soundControl: {
+    position: 'absolute',
+    top: '80px',
+    right: '30px',
+    display: 'flex',
+    gap: '10px',
+    zIndex: 1000,
+  },
+  soundButton: {
+    padding: '8px 16px',
+    borderRadius: '20px',
+    border: 'none',
+    color: 'white',
+    fontWeight: '600',
+    cursor: 'pointer',
+    fontSize: '14px',
+    transition: 'all 0.3s ease',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+  },
+  testSoundButton: {
+    padding: '8px 16px',
+    borderRadius: '20px',
+    border: 'none',
+    backgroundColor: '#3b82f6',
+    color: 'white',
+    fontWeight: '600',
+    cursor: 'pointer',
+    fontSize: '14px',
+    transition: 'all 0.3s ease',
+    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+  },
+  content: {
+    flex: 1,
+    display: 'grid',
+    gridTemplateColumns: '1fr 400px',
+    gap: '24px',
+    padding: '24px',
+    maxWidth: '1800px',
+    margin: '0 auto',
+    width: '100%',
+    marginTop: '20px',
+  },
+  mainSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '24px',
+  },
+  ticketCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: '20px',
+    padding: '32px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    animation: 'fadeIn 0.6s ease-out',
   },
   cardHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '10px',
+    marginBottom: '24px',
+    paddingBottom: '16px',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
   },
-  mainCardTitle: {
-    fontSize: '32px',
+  cardTitle: {
+    fontSize: '28px',
     fontWeight: '700',
-    color: '#1e293b',
+    color: '#f1f5f9',
     margin: 0,
+    letterSpacing: '0.5px',
   },
-  guicheBadge: {
+  userInfoContainer: {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  userLoading: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    color: '#94a3b8',
+    fontSize: '14px',
+  },
+  spinner: {
+    width: '20px',
+    height: '20px',
+    border: '2px solid #3b82f6',
+    borderTop: '2px solid transparent',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+  },
+  userBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: '8px 16px',
+    borderRadius: '12px',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  userPhotoContainer: {
+    position: 'relative',
+  },
+  userPhoto: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '50%',
+    objectFit: 'cover',
+    border: '2px solid #3b82f6',
+  },
+  userPhotoPlaceholder: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '50%',
     backgroundColor: '#3b82f6',
-    padding: '12px 24px',
-    borderRadius: '25px',
-    fontSize: '20px',
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  guicheNumber: {
-    fontSize: '26px',
-    fontWeight: '700',
-  },
-  ticketDisplay: {
-    backgroundColor: '#1e293b',
-    padding: '40px',
-    borderRadius: '15px',
-    border: '2px solid #334155',
-    minHeight: '200px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  userInitial: {
+    fontSize: '20px',
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  userDetails: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  userName: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#f1f5f9',
+  },
+  userRole: {
+    fontSize: '12px',
+    color: '#94a3b8',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: '2px 8px',
+    borderRadius: '10px',
+    alignSelf: 'flex-start',
+  },
+  ticketAndUserContainer: {
+    display: 'flex',
+    gap: '24px',
+    marginBottom: '24px',
+  },
+  ticketDisplay: {
+    padding: '48px 32px',
+    borderRadius: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+    minHeight: '300px',
+    transition: 'all 0.3s ease',
   },
   ticketNumber: {
     fontSize: '120px',
     fontWeight: '900',
     color: '#ffffff',
+    margin: '0 0 16px 0',
+    textShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+    letterSpacing: '2px',
+    fontFamily: "'Courier New', monospace",
+  },
+  ticketType: {
+    fontSize: '24px',
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    padding: '8px 24px',
+    borderRadius: '30px',
+    textTransform: 'uppercase',
+    letterSpacing: '1px',
+  },
+  userCard: {
+    flex: 1,
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    borderRadius: '16px',
+    padding: '24px',
+    border: '1px solid rgba(59, 130, 246, 0.3)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    backdropFilter: 'blur(10px)',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  userCardHeader: {
+    marginBottom: '20px',
+    paddingBottom: '12px',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  userCardTitle: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#94a3b8',
+    letterSpacing: '1px',
+  },
+  userCardContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '20px',
+    flex: 1,
+  },
+  userCardPhoto: {
+    position: 'relative',
+  },
+  userCardPhotoImage: {
+    width: '100px',
+    height: '100px',
+    borderRadius: '50%',
+    objectFit: 'cover',
+    border: '4px solid #3b82f6',
+    boxShadow: '0 8px 24px rgba(59, 130, 246, 0.4)',
+  },
+  userCardPhotoPlaceholder: {
+    width: '100px',
+    height: '100px',
+    borderRadius: '50%',
+    backgroundColor: '#3b82f6',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '4px solid rgba(59, 130, 246, 0.3)',
+    boxShadow: '0 8px 24px rgba(59, 130, 246, 0.4)',
+  },
+  userCardInitial: {
+    fontSize: '36px',
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  userCardInfo: {
+    textAlign: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  userCardName: {
+    fontSize: '24px',
+    fontWeight: '700',
+    color: '#f1f5f9',
     margin: 0,
-    textShadow: '0 4px 8px rgba(0, 0, 0, 0.5)',
+  },
+  userCardBadge: {
+    display: 'inline-block',
+  },
+  userCardRole: {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#3b82f6',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    padding: '6px 16px',
+    borderRadius: '20px',
+    letterSpacing: '0.5px',
+  },
+  userCardMeta: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    marginTop: '8px',
+  },
+  userCardMetaItem: {
+    fontSize: '14px',
+    color: '#94a3b8',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+  },
+  metaIcon: {
+    fontSize: '16px',
+  },
+  noCaller: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '40px 20px',
+    gap: '12px',
+    textAlign: 'center',
+  },
+  noCallerIcon: {
+    fontSize: '48px',
+    opacity: 0.5,
+    marginBottom: '10px',
+  },
+  noCallerText: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  noCallerSubtext: {
+    fontSize: '14px',
+    color: '#64748b',
+    fontStyle: 'italic',
+  },
+  infoBar: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '16px 24px',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: '12px',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  infoItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  infoLabel: {
+    fontSize: '14px',
+    color: '#94a3b8',
+    fontWeight: '500',
+  },
+  infoValue: {
+    fontSize: '16px',
+    color: '#f1f5f9',
+    fontWeight: '600',
+  },
+  // HISTÓRICO DE ULTIMAS FICHAS
+  recentTicketsCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: '20px',
+    padding: '24px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    animation: 'fadeIn 0.6s ease-out',
+  },
+  recentTicketsHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px',
+    paddingBottom: '16px',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  recentTicketsTitle: {
+    fontSize: '20px',
+    fontWeight: '600',
+    color: '#f1f5f9',
+    margin: 0,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  historyIcon: {
+    fontSize: '20px',
+  },
+  recentTicketsControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  recentTicketsCount: {
+    fontSize: '14px',
+    color: '#94a3b8',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: '4px 12px',
+    borderRadius: '12px',
+  },
+  clearHistoryButton: {
+    padding: '6px 12px',
+    borderRadius: '8px',
+    border: 'none',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    color: '#ef4444',
+    fontWeight: '600',
+    cursor: 'pointer',
+    fontSize: '13px',
+    transition: 'all 0.3s ease',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+  },
+  recentTicketsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+  },
+  recentTicketItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: '16px',
+    borderRadius: '12px',
+    transition: 'all 0.3s ease',
+    borderLeft: '4px solid transparent',
+    '&:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+      transform: 'translateX(5px)',
+    },
+  },
+  recentTicketNumber: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    minWidth: '70px',
+  },
+  ticketPrefix: {
+    fontSize: '14px',
+    fontWeight: '700',
+    color: '#94a3b8',
+    marginBottom: '2px',
+  },
+  ticketNum: {
+    fontSize: '22px',
+    fontWeight: '800',
+    color: '#f1f5f9',
+    fontFamily: "'Courier New', monospace",
+  },
+  recentTicketInfo: {
+    flex: 1,
+    marginLeft: '16px',
+  },
+  recentTicketMeta: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '8px',
+  },
+  recentTicketGuiche: {
+    fontSize: '13px',
+    color: '#94a3b8',
+    fontWeight: '500',
+  },
+  recentTicketTime: {
+    fontSize: '12px',
+    color: '#64748b',
+    fontStyle: 'italic',
+  },
+  recentTicketUser: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  recentUserPhoto: {
+    width: '28px',
+    height: '28px',
+    borderRadius: '50%',
+    objectFit: 'cover',
+    border: '1px solid #3b82f6',
+  },
+  recentUserInitial: {
+    width: '28px',
+    height: '28px',
+    borderRadius: '50%',
+    backgroundColor: '#3b82f6',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  recentUserName: {
+    fontSize: '14px',
+    color: '#f1f5f9',
+    fontWeight: '500',
+  },
+  recentTicketBadge: {
+    padding: '6px 12px',
+    borderRadius: '20px',
+    minWidth: '100px',
+    textAlign: 'center',
+  },
+  priorityText: {
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#ffffff',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+  noRecentTickets: {
+    padding: '40px 20px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+    textAlign: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: '12px',
+  },
+  noRecentIcon: {
+    fontSize: '40px',
+    opacity: 0.5,
+    marginBottom: '8px',
+  },
+  noRecentText: {
+    fontSize: '16px',
+    color: '#94a3b8',
+    fontWeight: '600',
+  },
+  noRecentSubtext: {
+    fontSize: '14px',
+    color: '#64748b',
+    fontStyle: 'italic',
+  },
+  mediaSection: {
+    backgroundColor: '#1e293b',
+    borderRadius: '20px',
+    padding: '24px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    animation: 'fadeIn 0.6s ease-out 0.2s both',
+  },
+  mediaHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px',
+    paddingBottom: '16px',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  mediaTitle: {
+    fontSize: '20px',
+    fontWeight: '600',
+    color: '#f1f5f9',
+    margin: 0,
+  },
+  mediaCounter: {
+    fontSize: '14px',
+    color: '#94a3b8',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: '4px 12px',
+    borderRadius: '12px',
   },
   carouselContainer: {
     borderRadius: '12px',
     overflow: 'hidden',
-    backgroundColor: '#f1f5f9',
-    padding: '10px',
+    height: '200px',
   },
   sidebar: {
     display: 'flex',
     flexDirection: 'column',
     gap: '24px',
   },
-  weatherCard: {
-    backgroundColor: '#ffffff',
-    padding: '25px',
+  weatherCardLarge: {
+    backgroundColor: '#1e293b',
     borderRadius: '20px',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-    border: '1px solid #e2e8f0',
+    padding: '30px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    animation: 'fadeIn 0.6s ease-out 0.3s both',
   },
-  timeCard: {
-    backgroundColor: '#ffffff',
-    padding: '25px',
-    borderRadius: '20px',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-    border: '1px solid #e2e8f0',
-    textAlign: 'center',
+  weatherHeaderLarge: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '30px',
   },
-  ticketsCard: {
-    backgroundColor: '#ffffff',
-    padding: '25px',
-    borderRadius: '20px',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-    border: '1px solid #e2e8f0',
+  widgetTitleLarge: {
+    fontSize: '22px',
+    fontWeight: '700',
+    color: '#f1f5f9',
+    margin: 0,
+    letterSpacing: '0.5px',
   },
-  cardTitle: {
-    fontSize: '24px',
+  weatherLocationLarge: {
+    fontSize: '16px',
+    color: '#94a3b8',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: '6px 14px',
+    borderRadius: '12px',
     fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: '20px',
-    textAlign: 'center',
   },
-  weatherContent: {
+  weatherContentLarge: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '20px',
+    gap: '30px',
   },
-  citySection: {
-    textAlign: 'center',
-    marginBottom: '10px',
-  },
-  cityText: {
-    fontSize: '22px',
-    fontWeight: '600',
-    color: '#3b82f6',
-    margin: '0 0 5px 0',
-  },
-  updateInfo: {
-    fontSize: '12px',
-    color: '#94a3b8',
-    fontStyle: 'italic',
-  },
-  weatherMain: {
+  weatherMainLarge: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: '15px',
+    gap: '30px',
   },
-  weatherIcon: {
+  weatherIconLarge: {
     width: '100px',
     height: '100px',
+    filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2))',
   },
-  weatherTemp: {
+  weatherTempLarge: {
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
   },
-  tempText: {
-    fontSize: '48px',
-    fontWeight: '700',
-    color: '#1e293b',
-    margin: 0,
+  tempValueLarge: {
+    fontSize: '52px',
+    fontWeight: '800',
+    color: '#f1f5f9',
   },
-  weatherDescription: {
-    fontSize: '18px',
-    color: '#64748b',
+  weatherDescLarge: {
+    fontSize: '20px',
+    color: '#94a3b8',
     textTransform: 'capitalize',
-    margin: 0,
+    fontWeight: '500',
   },
-  weatherDetails: {
-    display: 'flex',
-    justifyContent: 'space-around',
+  weatherDetailsLarge: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
     gap: '15px',
+    padding: '20px',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: '12px',
   },
-  weatherDetail: {
+  detailItemLarge: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     gap: '8px',
   },
-  detailLabel: {
+  detailLabelLarge: {
     fontSize: '14px',
-    color: '#64748b',
-    fontWeight: '500',
-  },
-  detailValue: {
-    fontSize: '20px',
+    color: '#94a3b8',
     fontWeight: '600',
-    color: '#1e293b',
   },
-  dateSection: {
-    marginBottom: '15px',
+  detailValueLarge: {
+    fontSize: '22px',
+    fontWeight: '700',
+    color: '#f1f5f9',
+  },
+  timeCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: '20px',
+    padding: '32px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    textAlign: 'center',
+    animation: 'fadeIn 0.6s ease-out 0.4s both',
+  },
+  dateDisplay: {
+    marginBottom: '16px',
   },
   dateText: {
     fontSize: '24px',
     fontWeight: '600',
-    color: '#1e293b',
+    color: '#f1f5f9',
     margin: 0,
   },
-  timeSection: {
-    backgroundColor: '#f1f5f9',
-    padding: '15px',
-    borderRadius: '12px',
-    border: '1px solid #e2e8f0',
+  timeDisplay: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'baseline',
+    gap: '8px',
+    marginBottom: '16px',
   },
   timeText: {
-    fontSize: '32px',
-    fontWeight: '700',
+    fontSize: '64px',
+    fontWeight: '800',
     color: '#3b82f6',
-    margin: 0,
-    fontFamily: 'monospace',
+    fontFamily: "'Courier New', monospace",
+    letterSpacing: '2px',
   },
-  ticketList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-  },
-  ticketItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '18px',
-    borderRadius: '12px',
-    fontSize: '22px',
+  secondText: {
+    fontSize: '32px',
     fontWeight: '600',
-    color: '#1e293b',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-    transition: 'transform 0.2s ease',
-  },
-  ticketType: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    padding: '6px 10px',
-    borderRadius: '8px',
-    fontSize: '16px',
-    fontWeight: '700',
-  },
-  emptyTickets: {
-    textAlign: 'center',
-    padding: '30px',
     color: '#94a3b8',
-    fontSize: '18px',
-    fontStyle: 'italic',
+    fontFamily: "'Courier New', monospace",
+  },
+  weekDay: {
+    fontSize: '20px',
+    fontWeight: '600',
+    color: '#f1f5f9',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    padding: '8px 16px',
+    borderRadius: '12px',
+    display: 'inline-block',
+  },
+  footer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    padding: '16px 24px',
+    borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  footerContent: {
+    maxWidth: '1800px',
+    margin: '0 auto',
+    width: '100%',
+    textAlign: 'center',
+  },
+  footerText: {
+    fontSize: '14px',
+    color: '#94a3b8',
   },
 };
 
