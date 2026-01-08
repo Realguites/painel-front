@@ -1,7 +1,7 @@
 import React from 'react';
 import AnimatedLogoHeader from './AnimatedLogoHeader';
 import SideMenu from '../components/SideMenu';
-import logo from './logo_transparente.png';
+import logo from './logo.png';
 
 const Header = () => {
   return (

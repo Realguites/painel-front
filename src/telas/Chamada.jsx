@@ -396,7 +396,7 @@ function CallNextTicket() {
     const labels = {
       'NORMAL': 'Normal',
       'PRIORITARIO': 'Prioritário',
-      'ATPVE': 'AT/PE'
+      'ATPVE': 'ATPV-e'
     };
     return labels[priority] || priority;
   };
@@ -690,12 +690,6 @@ function CallNextTicket() {
   return (
     <div style={styles.container}>
       <Header />
-      
-      <div style={styles.guicheContainer}>
-        <span style={styles.guicheLabel}>Guichê:</span>
-        <span style={styles.guicheValue}>{guiche}</span>
-      </div>
-
       {/* Botão de Chamar Novamente */}
       <div style={styles.repeatButtonContainer}>
         <button 
@@ -968,7 +962,7 @@ function CallNextTicket() {
         
         <div style={styles.queueGrid}>
           {filteredTickets.length > 0 ? (
-            filteredTickets.slice(0, 12).map((ticket, index) => (
+            filteredTickets.slice(0, 25).map((ticket, index) => (
               <div
                 key={`${ticket.idFicha}-${index}`}
                 style={{

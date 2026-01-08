@@ -4,6 +4,8 @@ import config from '../config/config';
 import Header from '../others/Header';
 import { decodeToken } from "react-jwt";
 import Carrossel from '../others/Carrossel';
+import logo from '../others/logo.png';
+import { MdBorderColor } from 'react-icons/md';
 
 function Painel() {
   const [lastCalledTicket, setLastCalledTicket] = useState({
@@ -41,12 +43,25 @@ function Painel() {
   
   const [userLoading, setUserLoading] = useState(true);
   
-  // NOVO: Histórico das últimas fichas chamadas
+  // Histórico das últimas fichas chamadas
   const [recentTickets, setRecentTickets] = useState([]);
+  
+  // Configurações do sistema
+  const [systemSettings, setSystemSettings] = useState({
+    somAtivado: true,
+    vozAtivada: true,
+    volumeGeral: 80,
+    somAlertaSelecionado: 'notification',
+    vozSelecionada: 'pt-BR',
+    velocidadeVoz: 0,
+    tomVoz: 0
+  });
+  
+  const [settingsLoading, setSettingsLoading] = useState(true);
   
   const { API_BASE_URL } = config;
   const audioContextRef = useRef(null);
-  const audioCacheRef = useRef(null);
+  const audioCacheRef = useRef({});
 
   // API de Clima
   const API_KEY = 'c4200076a97c0a637b7c3aca46b9bc6c';
@@ -72,22 +87,80 @@ function Painel() {
     }
   ];
 
+  // ================= FUNÇÕES DE CONFIGURAÇÕES =================
+  
+  const fetchSystemSettings = async () => {
+    try {
+      const token = localStorage.getItem("jwtToken");
+      if (!token) {
+        setSettingsLoading(false);
+        return;
+      }
+      
+      const response = await axios.get(`${API_BASE_URL}/settings/empresa`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      console.log('🔧 Configurações carregadas:', response.data);
+      
+      // Garante valores padrão se não vierem do backend
+      setSystemSettings({
+        somAtivado: response.data.somAtivado !== false,
+        vozAtivada: response.data.vozAtivada !== false,
+        volumeGeral: response.data.volumeGeral || 80,
+        somAlertaSelecionado: response.data.somAlertaSelecionado || 'notification',
+        vozSelecionada: response.data.vozSelecionada || 'pt-BR',
+        velocidadeVoz: response.data.velocidadeVoz || 0,
+        tomVoz: response.data.tomVoz || 0
+      });
+      
+    } catch (error) {
+      console.error('❌ Erro ao carregar configurações:', error);
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
   // ================= FUNÇÕES DE HISTÓRICO =================
   
-  // Carregar histórico do localStorage
   const loadRecentTickets = () => {
     try {
       const stored = localStorage.getItem('recentTickets');
       if (stored) {
         const parsed = JSON.parse(stored);
-        setRecentTickets(parsed);
+        console.log('📋 Histórico carregado:', parsed.length, 'fichas');
+        
+        // Processar fotos no histórico
+        const processed = parsed.map(ticket => ({
+          ...ticket,
+          usuarioFoto: ticket.usuarioFoto ? processUserPhoto(ticket.usuarioFoto) : null
+        }));
+        
+        setRecentTickets(processed);
       }
     } catch (error) {
       console.error('Erro ao carregar histórico do localStorage:', error);
     }
   };
 
-  // Salvar histórico no localStorage
+  const processUserPhoto = (foto) => {
+    if (!foto) return null;
+    
+    try {
+      if (foto.startsWith('data:image')) {
+        return foto;
+      } else if (foto.startsWith('/') || foto.startsWith('http')) {
+        return foto;
+      } else {
+        // Assume que é base64
+        return `data:image/jpeg;base64,${foto}`;
+      }
+    } catch (error) {
+      console.error('Erro ao processar foto:', error);
+      return null;
+    }
+  };
+
   const saveRecentTickets = (tickets) => {
     try {
       localStorage.setItem('recentTickets', JSON.stringify(tickets));
@@ -96,7 +169,6 @@ function Painel() {
     }
   };
 
-  // Adicionar ficha ao histórico (com verificação de duplicação)
   const addToRecentTickets = (ticket) => {
     if (!ticket || !ticket.idFicha) {
       console.log('Ticket inválido para histórico');
@@ -104,34 +176,34 @@ function Painel() {
     }
 
     setRecentTickets(prev => {
-      // Verificar se já existe (evitar duplicação)
       const exists = prev.some(t => t.idFicha === ticket.idFicha);
       if (exists) {
         console.log(`Ticket ${ticket.idFicha} já está no histórico, ignorando...`);
         return prev;
       }
 
-      // Criar novo array com a nova ficha no início
+      const usuarioQueChamou = ticket.usuarioQueChamou;
+      const usuarioFoto = usuarioQueChamou?.foto ? processUserPhoto(usuarioQueChamou.foto) : null;
+
       const newRecent = [
         {
           idFicha: ticket.idFicha,
           numero: ticket.numero,
           prioridade: ticket.identPrioridade,
-          guiche: ticket.usuarioQueChamou?.guiche || '-',
-          usuario: ticket.usuarioQueChamou?.nome || 'Operador',
+          guiche: usuarioQueChamou?.guiche || '-',
+          usuario: usuarioQueChamou?.nome || 'Operador',
           data: new Date().toISOString(),
-          usuarioFoto: ticket.usuarioQueChamou?.foto || null
+          usuarioFoto: usuarioFoto,
+          usuarioId: usuarioQueChamou?.idUsuario
         },
-        ...prev.slice(0, 4) // Manter apenas as últimas 5
+        ...prev.slice(0, 4) // Mantém apenas 5 itens
       ];
 
-      // Salvar no localStorage
       saveRecentTickets(newRecent);
       return newRecent;
     });
   };
 
-  // Limpar histórico
   const clearRecentTickets = () => {
     if (window.confirm('Tem certeza que deseja limpar o histórico de fichas?')) {
       setRecentTickets([]);
@@ -150,7 +222,6 @@ function Painel() {
 
     try {
       setUserLoading(true);
-      
       const decodedToken = decodeToken(token);
       
       if (!decodedToken) {
@@ -173,7 +244,6 @@ function Painel() {
     }
   };
 
-  // Função para processar o usuário que chamou a ficha - COM FOTO DO JSON
   const processCalledByUser = (usuarioData) => {
     if (!usuarioData) return null;
     
@@ -182,6 +252,8 @@ function Painel() {
     if (usuarioData.foto && typeof usuarioData.foto === 'string') {
       try {
         if (usuarioData.foto.startsWith('data:image')) {
+          fotoUrl = usuarioData.foto;
+        } else if (usuarioData.foto.startsWith('/') || usuarioData.foto.startsWith('http')) {
           fotoUrl = usuarioData.foto;
         } else {
           fotoUrl = `data:image/jpeg;base64,${usuarioData.foto}`;
@@ -202,7 +274,6 @@ function Painel() {
     };
   };
 
-  // Função auxiliar para formatar tipo de usuário
   const formatUserType = (tipo) => {
     const tipos = {
       'GERENTE': 'Gerente',
@@ -213,7 +284,7 @@ function Painel() {
     return tipos[tipo] || tipo;
   };
 
-  // ================= FUNÇÕES DE SOM =================
+  // ================= FUNÇÕES DE SOM E VOZ =================
   
   const initAudioContext = () => {
     try {
@@ -225,25 +296,242 @@ function Painel() {
     }
   };
 
-  const playNotificationSound = async (ticketData = null) => {
+  // FUNÇÃO CORRIGIDA: Toca o som das configurações
+  const playSelectedSound = async () => {
+    console.log('🎵 Iniciando playSelectedSound');
+    
     if (!soundPermission) {
+      console.log('🔇 Som desativado pelo usuário');
+      return Promise.resolve();
+    }
+    
+    if (!systemSettings.somAtivado) {
+      console.log('🔇 Som desativado nas configurações');
+      return Promise.resolve();
+    }
+    
+    if (!systemSettings.somAlertaSelecionado) {
+      console.log('⚠️ Nenhum som selecionado');
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      try {
+        const token = localStorage.getItem("jwtToken");
+        if (!token) {
+          console.error('❌ Token não encontrado');
+          reject(new Error('Token não encontrado'));
+          return;
+        }
+        
+        const cacheKey = systemSettings.somAlertaSelecionado;
+        console.log('🔑 Cache key:', cacheKey);
+        
+        // Se já tem no cache, usa do cache
+        if (audioCacheRef.current[cacheKey]) {
+          console.log('💾 Usando som do cache');
+          const audio = new Audio(audioCacheRef.current[cacheKey]);
+          audio.volume = systemSettings.volumeGeral / 100;
+          
+          audio.oncanplaythrough = () => {
+            console.log('▶️ Tocando som do cache...');
+            audio.play().then(() => {
+              console.log('✅ Som do cache iniciado');
+            }).catch(reject);
+          };
+          
+          audio.onended = () => {
+            console.log('✅ Som do cache finalizado');
+            resolve();
+          };
+          
+          audio.onerror = (error) => {
+            console.error('❌ Erro no som do cache:', error);
+            // Remove do cache se der erro
+            delete audioCacheRef.current[cacheKey];
+            reject(error);
+          };
+          
+          audio.load();
+          return;
+        }
+        
+        // Busca do servidor
+        const encodedSomId = encodeURIComponent(systemSettings.somAlertaSelecionado);
+        const url = `${API_BASE_URL}/settings/testar-som/${encodedSomId.slice(0,-4)}`;
+        console.log('🌐 Buscando som:', url);
+        
+        fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'audio/mpeg'
+          }
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          return response.blob();
+        })
+        .then(blob => {
+          console.log('📦 Blob recebido:', blob.size, 'bytes');
+          const blobUrl = URL.createObjectURL(blob);
+          
+          // Armazena no cache
+          audioCacheRef.current[cacheKey] = blobUrl;
+          console.log('💾 Som armazenado no cache');
+          
+          const audio = new Audio(blobUrl);
+          audio.volume = systemSettings.volumeGeral / 100;
+          
+          audio.oncanplaythrough = () => {
+            console.log('▶️ Tocando som do servidor...');
+            audio.play().then(() => {
+              console.log('✅ Som do servidor iniciado');
+            }).catch(error => {
+              console.error('❌ Erro ao tocar áudio:', error);
+              reject(error);
+            });
+          };
+          
+          audio.onended = () => {
+            console.log('✅ Som do servidor finalizado');
+            resolve();
+          };
+          
+          audio.onerror = (error) => {
+            console.error('❌ Erro no áudio:', error);
+            reject(error);
+          };
+          
+          audio.load();
+          
+          // Limpa do cache após 5 minutos
+          setTimeout(() => {
+            if (audioCacheRef.current[cacheKey]) {
+              URL.revokeObjectURL(audioCacheRef.current[cacheKey]);
+              delete audioCacheRef.current[cacheKey];
+              console.log('🗑️ Cache limpo');
+            }
+          }, 5 * 60 * 1000);
+        })
+        .catch(error => {
+          console.error('❌ Erro ao buscar som:', error);
+          reject(error);
+        });
+        
+      } catch (error) {
+        console.error('❌ Erro em playSelectedSound:', error);
+        reject(error);
+      }
+    });
+  };
+
+  // FUNÇÃO SIMPLIFICADA: Fala a ficha
+  const speakTicket = (ticketData) => {
+    if (!soundPermission || !window.speechSynthesis || !systemSettings.vozAtivada) {
+      console.log('🗣️ Voz não disponível ou desativada');
+      return;
+    }
+    
+    try {
+      // Cancela fala anterior
+      window.speechSynthesis.cancel();
+      
+      const ticketNumber = formatTicketNumberForSpeech(
+        ticketData.numero, 
+        ticketData.prioridade
+      );
+      const guiche = ticketData.usuarioQueChamou?.guiche || currentUser.guiche || '-';
+      const priorityLabel = getPriorityLabel(ticketData.prioridade).toLowerCase();
+      
+      const textToSpeak = `Ficha ${ticketNumber}, ${priorityLabel}, dirija-se ao atendente ${ticketData.usuarioQueChamou?.nome}`;
+      
+      console.log('🗣️ Texto para falar:', textToSpeak);
+      
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.lang = systemSettings.vozSelecionada;
+      utterance.volume = systemSettings.volumeGeral / 100;
+      
+      // Ajusta velocidade
+      const rate = 0.5 + (systemSettings.velocidadeVoz + 10) * 0.15;
+      utterance.rate = Math.min(Math.max(rate, 0.5), 2);
+      
+      // Ajusta tom
+      const pitch = 1 + (systemSettings.tomVoz * 0.1);
+      utterance.pitch = Math.min(Math.max(pitch, 0), 2);
+      
+      // Encontra voz
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        const voice = voices.find(v => v.lang.startsWith(systemSettings.vozSelecionada)) || voices[0];
+        utterance.voice = voice;
+        console.log('🔊 Voz selecionada:', voice.name);
+      }
+      
+      utterance.onstart = () => console.log('▶️ Voz iniciada');
+      utterance.onend = () => console.log('✅ Voz finalizada');
+      utterance.onerror = (e) => console.error('❌ Erro na voz:', e);
+      
+      console.log('🎤 Iniciando fala...');
+      window.speechSynthesis.speak(utterance);
+      
+    } catch (error) {
+      console.error('❌ Erro ao falar:', error);
+    }
+  };
+
+  const formatTicketNumberForSpeech = (numero, prioridade) => {
+    const formattedNumber = numero.toString().padStart(3, '0');
+    const prefix = getPriorityPrefix(prioridade);
+    return `${prefix} ${formattedNumber}`;
+  };
+
+  // FUNÇÃO PRINCIPAL CORRIGIDA: Notificação com sequência correta
+  const playNotificationSound = async (ticketData = null) => {
+    console.log('🔔 INICIANDO NOTIFICAÇÃO COMPLETA');
+    
+    if (!soundPermission) {
+      console.log('🔇 Som global desativado');
       showVisualNotification(ticketData);
       return;
     }
-
-    try {
-      const audio = new Audio(`${API_BASE_URL}/api/audio/notification`);
-      audio.play();
-      
-      if (ticketData) {
-        showVisualNotification(ticketData);
+    
+    // 1. Mostra notificação visual primeiro
+    showVisualNotification(ticketData);
+    
+    // 2. Toca o som (com tratamento de erro)
+    if (systemSettings.somAtivado && systemSettings.somAlertaSelecionado) {
+      console.log('🎵 Iniciando reprodução do som...');
+      try {
+        await playSelectedSound();
+        console.log('✅ Som reproduzido com sucesso');
+      } catch (error) {
+        console.error('❌ Falha ao tocar som:', error);
+        // Tenta fallback
+        try {
+          playFallbackBeep();
+          console.log('🔄 Usando fallback beep');
+        } catch (fallbackError) {
+          console.error('❌ Falha no fallback também:', fallbackError);
+        }
       }
-    } catch (error) {
-      playFallbackBeep();
-      if (ticketData) {
-        showVisualNotification(ticketData);
-      }
+    } else {
+      console.log('⏭️ Som desativado nas configurações, pulando...');
     }
+    
+    // 3. Pequena pausa entre som e voz
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // 4. Fala a ficha
+    if (ticketData && systemSettings.vozAtivada) {
+      console.log('🗣️ Iniciando fala da ficha...');
+      speakTicket(ticketData);
+    } else {
+      console.log('⏭️ Voz desativada ou sem ticket, pulando...');
+    }
+    
+    console.log('🎉 NOTIFICAÇÃO CONCLUÍDA');
   };
 
   const playFallbackBeep = () => {
@@ -280,6 +568,63 @@ function Painel() {
     } catch (error) {
       console.error('Erro no fallback beep:', error);
     }
+  };
+  
+
+  const testSound = async () => {
+  
+    if (!soundPermission) {
+      alert('🔇 Som desativado pelo usuário');
+      return;
+    }
+    
+    if (!systemSettings.somAtivado) {
+      alert('🔇 Som desativado nas configurações');
+      return;
+    }
+    
+    if (!systemSettings.somAlertaSelecionado) {
+      alert('⚠️ Nenhum som selecionado nas configurações');
+      return;
+    }
+    
+    try {
+      await playSelectedSound();
+    } catch (error) {
+      console.error('❌ Erro no teste de som:', error);
+     // alert('❌ Erro ao testar som: ' + error.message);
+    }
+  };
+
+  const testVoice = () => {
+    if (!window.speechSynthesis) {
+      alert('❌ Seu navegador não suporta síntese de voz');
+      return;
+    }
+    
+    if (!systemSettings.vozAtivada) {
+      alert('🔇 Voz desativada nas configurações');
+      return;
+    }
+    
+    const utterance = new SpeechSynthesisUtterance('Teste de voz do sistema de atendimento');
+    utterance.lang = systemSettings.vozSelecionada;
+    utterance.volume = systemSettings.volumeGeral / 100;
+    
+    const rate = 0.5 + (systemSettings.velocidadeVoz + 10) * 0.15;
+    utterance.rate = Math.min(Math.max(rate, 0.5), 2);
+    
+    const pitch = 1 + (systemSettings.tomVoz * 0.1);
+    utterance.pitch = Math.min(Math.max(pitch, 0), 2);
+    
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      const voice = voices.find(v => v.lang.startsWith(systemSettings.vozSelecionada));
+      if (voice) utterance.voice = voice;
+    }
+    
+    window.speechSynthesis.speak(utterance);
+    alert('🗣️ Teste de voz iniciado');
   };
 
   const showVisualNotification = (ticketData) => {
@@ -362,7 +707,7 @@ function Painel() {
     const labels = {
       'NORMAL': 'Normal',
       'PRIORITARIO': 'Prioritário',
-      'ATPVE': 'AT/PE'
+      'ATPVE': 'ATPV-e'
     };
     return labels[priority] || priority;
   };
@@ -414,7 +759,6 @@ function Painel() {
     }
   };
 
-  // Buscar última ficha chamada - ATUALIZADA
   const fetchLastCalledTicket = async () => {
     const token = localStorage.getItem("jwtToken");
     if (!token) return;
@@ -425,7 +769,6 @@ function Painel() {
       });
       
       const ticketData = response.data;
-      
       const calledBy = ticketData.usuarioQueChamou ? 
         processCalledByUser(ticketData.usuarioQueChamou) : null;
       
@@ -466,7 +809,6 @@ function Painel() {
     }
   };
 
-  // Formatadores
   const formatDateTime = (date) => {
     const options = {
       timeZone: 'America/Sao_Paulo',
@@ -536,14 +878,33 @@ function Painel() {
     // Carregar histórico ao iniciar
     loadRecentTickets();
 
+    // Inicializar vozes do navegador
+    if (window.speechSynthesis) {
+      const loadVoices = () => {
+        const voices = window.speechSynthesis.getVoices();
+        console.log('🔊 Vozes disponíveis:', voices.map(v => `${v.name} (${v.lang})`));
+      };
+      
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+
     return () => {
       clearInterval(timer);
       clearInterval(weatherInterval);
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      // Limpa cache de áudio
+      Object.values(audioCacheRef.current).forEach(url => {
+        URL.revokeObjectURL(url);
+      });
     };
   }, []);
+
 
   useEffect(() => {
     fetchCurrentUser();
@@ -551,10 +912,22 @@ function Painel() {
 
   useEffect(() => {
     if (!userLoading) {
+      fetchSystemSettings();
       fetchLastCalledTicket();
       fetchNextTickets();
     }
   }, [userLoading, currentUser]);
+
+  // Recarrega configurações periodicamente
+  useEffect(() => {
+    if (!userLoading) {
+      const interval = setInterval(() => {
+        fetchSystemSettings();
+      }, 30000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [userLoading]);
 
   useEffect(() => {
     if (lastCalledTicket.numero !== ' - ') {
@@ -594,7 +967,9 @@ function Painel() {
       });
 
       eventSource.addEventListener('fichaChamada', (event) => {
+        console.log('📨 Evento SSE: fichaChamada recebido');
         const calledTicket = JSON.parse(event.data);
+        console.log('🎫 Ficha chamada:', calledTicket.numero, calledTicket.identPrioridade);
         
         const calledBy = calledTicket.usuarioQueChamou ? 
           processCalledByUser(calledTicket.usuarioQueChamou) : null;
@@ -624,25 +999,27 @@ function Painel() {
           [calledTicket.identPrioridade]: Math.max(0, prev[calledTicket.identPrioridade] - 1)
         }));
 
-        // ADICIONAR AO HISTÓRICO (com verificação de duplicação)
+        // ADICIONAR AO HISTÓRICO
         addToRecentTickets(calledTicket);
 
+        // Chama a notificação
+        console.log('🔔 Chamando playNotificationSound...');
         playNotificationSound(ticketInfo);
       });
 
       eventSource.onerror = (error) => {
-        console.error('Erro SSE:', error);
+        console.error('❌ Erro SSE:', error);
         eventSource.close();
         
         setReconnectAttempts(prev => prev + 1);
         reconnectTimeout = setTimeout(() => {
-          console.log('Reconectando SSE...');
+          console.log('🔄 Reconectando SSE...');
           connectToSSE();
         }, 1000);
       };
     };
 
-    if (!userLoading) {
+    if (!userLoading && !settingsLoading) {
       connectToSSE();
     }
 
@@ -650,79 +1027,17 @@ function Painel() {
       if (eventSource) eventSource.close();
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
     };
-  }, [soundPermission, userLoading, currentUser]);
+  }, [soundPermission, userLoading, settingsLoading, currentUser, systemSettings]);
 
   // ================= RENDER =================
   
   return (
     <div style={styles.container}>
-      <Header />
-      
-      <div style={styles.soundControl}>
-        <button
-          onClick={() => setSoundPermission(!soundPermission)}
-          style={{
-            ...styles.soundButton,
-            backgroundColor: soundPermission ? '#4CAF50' : '#f44336'
-          }}
-          title={soundPermission ? "Clique para desativar som" : "Clique para ativar som"}
-        >
-          {soundPermission ? '🔊 Som Ativado' : '🔇 Som Desativado'}
-        </button>
-        <button
-          onClick={() => playNotificationSound()}
-          style={styles.testSoundButton}
-          title="Testar som de notificação"
-        >
-          🔊 Testar Som
-        </button>
-      </div>
-      
       <div style={styles.content}>
         <div style={styles.mainSection}>
           <div style={styles.ticketCard}>
             <div style={styles.cardHeader}>
               <h2 style={styles.cardTitle}>ATENDIMENTO ATUAL</h2>
-              
-              <div style={styles.userInfoContainer}>
-                {userLoading ? (
-                  <div style={styles.userLoading}>
-                    <div style={styles.spinner}></div>
-                    <span>Carregando...</span>
-                  </div>
-                ) : (
-                  <div style={styles.userBadge}>
-                    <div style={styles.userPhotoContainer}>
-                      {currentUser.foto ? (
-                        <img 
-                          src={currentUser.foto} 
-                          alt={currentUser.nome}
-                          style={styles.userPhoto}
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            const placeholder = e.target.nextElementSibling;
-                            if (placeholder) placeholder.style.display = 'flex';
-                          }}
-                        />
-                      ) : null}
-                      <div style={{
-                        ...styles.userPhotoPlaceholder,
-                        display: !currentUser.foto ? 'flex' : 'none'
-                      }}>
-                        <span style={styles.userInitial}>
-                          {currentUser.nome.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    <div style={styles.userDetails}>
-                      <span style={styles.userName}>{currentUser.nome}</span>
-                      <span style={styles.userRole}>
-                        {formatUserType(currentUser.tipoUsuario)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
             
             <div style={styles.ticketAndUserContainer}>
@@ -773,23 +1088,6 @@ function Painel() {
                       </div>
                       <div style={styles.userCardInfo}>
                         <h3 style={styles.userCardName}>{lastCalledTicket.usuarioQueChamou.nome}</h3>
-                        <div style={styles.userCardBadge}>
-                          <span style={styles.userCardRole}>
-                            {formatUserType(lastCalledTicket.usuarioQueChamou.tipoUsuario)}
-                          </span>
-                        </div>
-                        <div style={styles.userCardMeta}>
-                          <span style={styles.userCardMetaItem}>
-                            <span style={styles.metaIcon}>📍</span>
-                            Guichê {lastCalledTicket.usuarioQueChamou.guiche}
-                          </span>
-                          {lastCalledTicket.usuarioQueChamou.email && (
-                            <span style={styles.userCardMetaItem}>
-                              <span style={styles.metaIcon}>✉️</span>
-                              {lastCalledTicket.usuarioQueChamou.email}
-                            </span>
-                          )}
-                        </div>
                       </div>
                     </>
                   ) : (
@@ -806,28 +1104,9 @@ function Painel() {
                 </div>
               </div>
             </div>
-
-            <div style={styles.infoBar}>
-              <div style={styles.infoItem}>
-                <span style={styles.infoLabel}>Última atualização:</span>
-                <span style={styles.infoValue}>{formatDateTime(currentDateTime)}</span>
-              </div>
-              <div style={styles.infoItem}>
-                <span style={styles.infoLabel}>Total na fila:</span>
-                <span style={styles.infoValue}>
-                  {ticketCounts.NORMAL + ticketCounts.PRIORITARIO + ticketCounts.ATPVE} fichas
-                </span>
-              </div>
-              {lastCalledTicket.usuarioQueChamou && (
-                <div style={styles.infoItem}>
-                  <span style={styles.infoLabel}>Operador ativo:</span>
-                  <span style={styles.infoValue}>{lastCalledTicket.usuarioQueChamou.nome}</span>
-                </div>
-              )}
-            </div>
           </div>
 
-          {/* HISTÓRICO DE ULTIMAS FICHAS CHAMADAS */}
+          {/* HISTÓRICO DE ULTIMAS FICHAS CHAMADAS - NOVO LAYOUT */}
           <div style={styles.recentTicketsCard}>
             <div style={styles.recentTicketsHeader}>
               <h3 style={styles.recentTicketsTitle}>
@@ -838,67 +1117,50 @@ function Painel() {
                 <span style={styles.recentTicketsCount}>
                   {recentTickets.length} fichas
                 </span>
-                {recentTickets.length > 0 && (
-                  <button
-                    onClick={clearRecentTickets}
-                    style={styles.clearHistoryButton}
-                    title="Limpar histórico"
-                  >
-                    🗑️ Limpar
-                  </button>
-                )}
               </div>
             </div>
             
             <div style={styles.recentTicketsList}>
               {recentTickets.length > 0 ? (
                 recentTickets.map((ticket, index) => (
-                  <div key={ticket.idFicha} style={styles.recentTicketItem}>
-                    <div style={styles.recentTicketNumber}>
-                      <span style={styles.ticketPrefix}>
-                        {getPriorityPrefix(ticket.prioridade)}
+                  <div key={ticket.idFicha || index} style={styles.recentTicketItem}>
+                    <div style={styles.recentTicketNumberCompact}>
+                      <span style={styles.ticketNumCompact}>
+                      {getPriorityPrefix(ticket.prioridade)}{ticket.numero.toString().padStart(3, '0')}
                       </span>
-                      <span style={styles.ticketNum}>
-                        {ticket.numero.toString().padStart(3, '0')}
-                      </span>
+                      <span style={styles.ticketDivider}>—</span>
                     </div>
                     
-                    <div style={styles.recentTicketInfo}>
-                      <div style={styles.recentTicketMeta}>
-                        <span style={styles.recentTicketGuiche}>
-                          Guichê: {ticket.guiche}
-                        </span>
-                        <span style={styles.recentTicketTime}>
-                          {formatRelativeTime(ticket.data)}
-                        </span>
-                      </div>
-                      
-                      <div style={styles.recentTicketUser}>
+                    <div style={styles.recentTicketInfoCompact}>
+                      <div style={styles.recentTicketUserCompact}>
                         {ticket.usuarioFoto ? (
                           <img 
                             src={ticket.usuarioFoto} 
                             alt={ticket.usuario}
-                            style={styles.recentUserPhoto}
+                            style={styles.recentUserPhotoCompact}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextElementSibling.style.display = 'flex';
+                            }}
                           />
-                        ) : (
-                          <div style={styles.recentUserInitial}>
-                            {ticket.usuario.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <span style={styles.recentUserName}>
+                        ) : null}
+                        <div style={{
+                          ...styles.recentUserInitialCompact,
+                          display: !ticket.usuarioFoto ? 'flex' : 'none'
+                        }}>
+                          {ticket.usuario.charAt(0).toUpperCase()}
+                        </div>
+                        <span style={styles.recentUserNameCompact}>
                           {ticket.usuario}
                         </span>
                       </div>
+                      
+                      <div style={styles.recentTicketTimeCompact}>
+                        {formatRelativeTime(ticket.data)}
+                      </div>
                     </div>
                     
-                    <div style={{
-                      ...styles.recentTicketBadge,
-                      backgroundColor: getPriorityColor(ticket.prioridade)
-                    }}>
-                      <span style={styles.priorityText}>
-                        {getPriorityLabel(ticket.prioridade)}
-                      </span>
-                    </div>
+                    {/* REMOVIDO: Badge colorido do tipo */}
                   </div>
                 ))
               ) : (
@@ -914,22 +1176,11 @@ function Painel() {
               )}
             </div>
           </div>
-
-          {/* CARROSSEL DE MÍDIA */}
-          <div style={styles.mediaSection}>
-            <div style={styles.mediaHeader}>
-              <h3 style={styles.mediaTitle}>INFORMAÇÕES E PUBLICIDADE</h3>
-              <span style={styles.mediaCounter}>1/{midias.length}</span>
-            </div>
-            <div style={styles.carouselContainer}>
-              <Carrossel midias={midias} />
-            </div>
-          </div>
         </div>
 
-        {/* SIDEBAR */}
+        {/* SIDEBAR COM OS 3 CARDS EMPILHADOS */}
         <div style={styles.sidebar}>
-          {/* PREVISÃO DO TEMPO */}
+          {/* 1. PREVISÃO DO TEMPO */}
           <div style={styles.weatherCardLarge}>
             <div style={styles.weatherHeaderLarge}>
               <h3 style={styles.widgetTitleLarge}>PREVISÃO DO TEMPO</h3>
@@ -967,14 +1218,14 @@ function Painel() {
                   </div>
                   <div style={styles.detailItemLarge}>
                     <span style={styles.detailLabelLarge}>Vento</span>
-                    <span style={styles.detailValueLarge}>{weatherData.wind.speed} m/s</span>
+                    <span style={styles.detailValueLarge}>{(weatherData.wind.speed / 3.6).toFixed(0)} Km/h</span>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* RELÓGIO E DATA */}
+          {/* 2. RELÓGIO E DATA */}
           <div style={styles.timeCard}>
             <div style={styles.dateDisplay}>
               <span style={styles.dateText}>
@@ -996,6 +1247,47 @@ function Painel() {
               }).toUpperCase()}
             </div>
           </div>
+
+          {/* 3. LOGO DO SISTEMA - DENTRO DA SIDEBAR */}
+          <div style={styles.logoCard}>
+  <div style={styles.logoContent}>
+    {/* Imagem da logo */}
+    <img 
+      src={logo} 
+      alt="Logo do Sistema"
+      style={styles.logoImage}
+    />
+    
+    {/* Mensagem abaixo da logo */}
+    <div style={styles.logoMessage}>
+      Visão em sistemas empresariais
+    </div>
+    
+    {/* Instagram e @trvision */}
+    <div style={styles.socialContainer}>
+      {/* Ícone do Instagram roxo */}
+      <svg style={styles.instagramIcon} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <defs>
+          <linearGradient id="instagramGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#f09433" />
+            <stop offset="25%" stopColor="#e6683c" />
+            <stop offset="50%" stopColor="#dc2743" />
+            <stop offset="75%" stopColor="#cc2366" />
+            <stop offset="100%" stopColor="#bc1888" />
+          </linearGradient>
+        </defs>
+        <path 
+          d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" 
+          fill="url(#instagramGradient)"
+        />
+      </svg>
+      
+      <div style={styles.instagramText}>
+        Siga <span style={styles.instagramHandle}>@trvision</span>
+      </div>
+    </div>
+  </div>
+</div>
         </div>
       </div>
 
@@ -1005,7 +1297,10 @@ function Painel() {
           <span style={styles.footerText}>
             Sistema de Atendimento • {formatDateTime(currentDateTime).split(',')[0]} • 
             Conectado via SSE • {reconnectAttempts > 0 ? `(${reconnectAttempts} reconexões)` : 'Conexão estável'} •
-            Som: {soundPermission ? 'Ativado' : 'Desativado'} •
+            Som: {soundPermission ? 'Ativado' : 'Desativado'} • 
+            Som Sistema: {systemSettings.somAtivado ? '✅' : '❌'} • 
+            Voz: {systemSettings.vozAtivada ? '✅' : '❌'} •
+            Volume: {systemSettings.volumeGeral}% •
             {lastCalledTicket.usuarioQueChamou ? 
               `Chamado por: ${lastCalledTicket.usuarioQueChamou.nome} (Guichê ${lastCalledTicket.usuarioQueChamou.guiche})` : 
               'Aguardando chamada'} •
@@ -1040,6 +1335,11 @@ function Painel() {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
           }
+          @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+          }
         `}
       </style>
     </div>
@@ -1065,6 +1365,7 @@ const styles = {
     display: 'flex',
     gap: '10px',
     zIndex: 1000,
+    alignItems: 'center',
   },
   soundButton: {
     padding: '8px 16px',
@@ -1088,6 +1389,29 @@ const styles = {
     fontSize: '14px',
     transition: 'all 0.3s ease',
     boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+  },
+  testVoiceButton: {
+    padding: '8px 16px',
+    borderRadius: '20px',
+    border: 'none',
+    backgroundColor: '#8b5cf6',
+    color: 'white',
+    fontWeight: '600',
+    cursor: 'pointer',
+    fontSize: '14px',
+    transition: 'all 0.3s ease',
+    boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+  },
+  settingsInfo: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: '6px 12px',
+    borderRadius: '10px',
+    marginLeft: '10px',
+  },
+  settingsText: {
+    fontSize: '12px',
+    color: '#94a3b8',
+    fontWeight: '600',
   },
   content: {
     flex: 1,
@@ -1267,8 +1591,8 @@ const styles = {
     position: 'relative',
   },
   userCardPhotoImage: {
-    width: '100px',
-    height: '100px',
+    width: '200px',
+    height: '200px',
     borderRadius: '50%',
     objectFit: 'cover',
     border: '4px solid #3b82f6',
@@ -1380,56 +1704,59 @@ const styles = {
     color: '#f1f5f9',
     fontWeight: '600',
   },
-  // HISTÓRICO DE ULTIMAS FICHAS
+  // HISTÓRICO DE ULTIMAS FICHAS - NOVO LAYOUT COMPACTO
   recentTicketsCard: {
     backgroundColor: '#1e293b',
     borderRadius: '20px',
-    padding: '24px',
+    padding: '20px',
     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
     border: '1px solid rgba(255, 255, 255, 0.1)',
     animation: 'fadeIn 0.6s ease-out',
+    height: 'auto',
+    minHeight: 'auto',
+    flex: '0 0 auto',
   },
   recentTicketsHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '20px',
-    paddingBottom: '16px',
+    marginBottom: '16px',
+    paddingBottom: '12px',
     borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
   },
   recentTicketsTitle: {
-    fontSize: '20px',
+    fontSize: '18px',
     fontWeight: '600',
     color: '#f1f5f9',
     margin: 0,
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
+    gap: '8px',
   },
   historyIcon: {
-    fontSize: '20px',
+    fontSize: '18px',
   },
   recentTicketsControls: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
+    gap: '8px',
   },
   recentTicketsCount: {
-    fontSize: '14px',
+    fontSize: '12px',
     color: '#94a3b8',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    padding: '4px 12px',
-    borderRadius: '12px',
+    padding: '4px 8px',
+    borderRadius: '10px',
   },
   clearHistoryButton: {
-    padding: '6px 12px',
-    borderRadius: '8px',
+    padding: '4px 8px',
+    borderRadius: '6px',
     border: 'none',
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
     color: '#ef4444',
     fontWeight: '600',
     cursor: 'pointer',
-    fontSize: '13px',
+    fontSize: '11px',
     transition: 'all 0.3s ease',
     display: 'flex',
     alignItems: 'center',
@@ -1438,73 +1765,62 @@ const styles = {
   recentTicketsList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px',
+    gap: '6px',
   },
   recentTicketItem: {
     display: 'flex',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    padding: '16px',
-    borderRadius: '12px',
-    transition: 'all 0.3s ease',
-    borderLeft: '4px solid transparent',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    padding: '10px 12px',
+    borderRadius: '10px',
+    transition: 'all 0.2s ease',
+    borderLeft: '3px solid transparent',
+    height: '48px',
     '&:hover': {
-      backgroundColor: 'rgba(255, 255, 255, 0.08)',
-      transform: 'translateX(5px)',
+      backgroundColor: 'rgba(255, 255, 255, 0.05)',
     },
   },
-  recentTicketNumber: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    minWidth: '70px',
-  },
-  ticketPrefix: {
-    fontSize: '14px',
-    fontWeight: '700',
-    color: '#94a3b8',
-    marginBottom: '2px',
-  },
-  ticketNum: {
-    fontSize: '22px',
-    fontWeight: '800',
-    color: '#f1f5f9',
-    fontFamily: "'Courier New', monospace",
-  },
-  recentTicketInfo: {
-    flex: 1,
-    marginLeft: '16px',
-  },
-  recentTicketMeta: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '8px',
-  },
-  recentTicketGuiche: {
-    fontSize: '13px',
-    color: '#94a3b8',
-    fontWeight: '500',
-  },
-  recentTicketTime: {
-    fontSize: '12px',
-    color: '#64748b',
-    fontStyle: 'italic',
-  },
-  recentTicketUser: {
+  recentTicketNumberCompact: {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
+    minWidth: '100px',
   },
-  recentUserPhoto: {
+  ticketPrefixCompact: {
+    fontSize: '14px',
+    fontWeight: '700',
+    color: '#94a3b8',
+  },
+  ticketNumCompact: {
+    fontSize: '27px',
+    fontWeight: '500',
+    color: '#f1f5f9',
+    fontFamily: "'Courier New', monospace",
+  },
+  ticketDivider: {
+    color: '#64748b',
+    fontSize: '14px',
+    margin: '0 8px',
+  },
+  recentTicketInfoCompact: {
+    flex: 1,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  recentTicketUserCompact: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  recentUserPhotoCompact: {
     width: '28px',
     height: '28px',
     borderRadius: '50%',
     objectFit: 'cover',
-    border: '1px solid #3b82f6',
+    border: '2px solid #3b82f6',
   },
-  recentUserInitial: {
+  recentUserInitialCompact: {
     width: '28px',
     height: '28px',
     borderRadius: '50%',
@@ -1516,47 +1832,41 @@ const styles = {
     fontWeight: 'bold',
     color: '#ffffff',
   },
-  recentUserName: {
+  recentUserNameCompact: {
     fontSize: '14px',
     color: '#f1f5f9',
     fontWeight: '500',
   },
-  recentTicketBadge: {
-    padding: '6px 12px',
-    borderRadius: '20px',
-    minWidth: '100px',
-    textAlign: 'center',
-  },
-  priorityText: {
+  recentTicketTimeCompact: {
     fontSize: '12px',
-    fontWeight: '600',
-    color: '#ffffff',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
+    color: '#94a3b8',
+    fontStyle: 'italic',
+    minWidth: '80px',
+    textAlign: 'right',
   },
   noRecentTickets: {
-    padding: '40px 20px',
+    padding: '20px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '12px',
+    gap: '8px',
     textAlign: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: '12px',
   },
   noRecentIcon: {
-    fontSize: '40px',
+    fontSize: '28px',
     opacity: 0.5,
-    marginBottom: '8px',
+    marginBottom: '4px',
   },
   noRecentText: {
-    fontSize: '16px',
+    fontSize: '14px',
     color: '#94a3b8',
     fontWeight: '600',
   },
   noRecentSubtext: {
-    fontSize: '14px',
+    fontSize: '12px',
     color: '#64748b',
     fontStyle: 'italic',
   },
@@ -1729,6 +2039,125 @@ const styles = {
     borderRadius: '12px',
     display: 'inline-block',
   },
+  logoCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: '20px',
+    padding: '24px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    animation: 'fadeIn 0.6s ease-out 0.5s both',
+  },
+  logoHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px',
+    paddingBottom: '16px',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  logoTitle: {
+    fontSize: '20px',
+    fontWeight: '700',
+    color: '#f1f5f9',
+    margin: 0,
+    letterSpacing: '0.5px',
+  },
+  logoContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+  },
+  logoContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: '20px',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: '12px',
+    minHeight: '120px',
+  },
+  logoPlaceholder: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+  },
+  logoText: {
+    fontSize: '32px',
+    fontWeight: '800',
+    color: '#3b82f6',
+    letterSpacing: '2px',
+  },
+  logoSubtext: {
+    fontSize: '30px',
+    color: '#94a3b8',
+    textAlign: 'center',
+  },
+  logoImage: {
+    maxWidth: '100%',
+    maxHeight: '320px',
+    objectFit: 'contain',
+  },
+  logoInfo: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '16px',
+    marginTop: '10px',
+  },
+  versionInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: '12px',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderRadius: '10px',
+    border: '1px solid rgba(59, 130, 246, 0.2)',
+  },
+  versionLabel: {
+    fontSize: '12px',
+    color: '#94a3b8',
+    fontWeight: '600',
+    marginBottom: '4px',
+  },
+  versionValue: {
+    fontSize: '16px',
+    color: '#f1f5f9',
+    fontWeight: '700',
+    fontFamily: "'Courier New', monospace",
+  },
+  statusInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: '12px',
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    borderRadius: '10px',
+    border: '1px solid rgba(34, 197, 94, 0.2)',
+  },
+  statusLabel: {
+    fontSize: '12px',
+    color: '#94a3b8',
+    fontWeight: '600',
+    marginBottom: '4px',
+  },
+  statusIndicator: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  statusDot: {
+    width: '10px',
+    height: '10px',
+    backgroundColor: '#22c55e',
+    borderRadius: '50%',
+    animation: 'pulse 2s infinite',
+  },
+  statusText: {
+    fontSize: '14px',
+    color: '#22c55e',
+    fontWeight: '600',
+  },
   footer: {
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     padding: '16px 24px',
@@ -1743,6 +2172,67 @@ const styles = {
   footerText: {
     fontSize: '14px',
     color: '#94a3b8',
+  },
+  logoCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: '20px',
+    padding: '12px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    animation: 'fadeIn 0.6s ease-out 0.5s both',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '200px',
+  },
+  
+  logoContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '16px',
+    width: '100%',
+  },
+
+  
+  logoMessage: {
+    fontSize: '18px',
+    color: 'gray',
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    textAlign: 'center',
+    fontWeight: '800',
+    marginTop: '8px',
+    letterSpacing: '0.5px',
+  },
+  
+  socialContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '10px',
+    marginTop: '12px',
+    padding: '10px 16px',
+    borderRadius: '12px',
+    width: '100%',
+  },
+  
+  instagramIcon: {
+    width: '32px',
+    height: '32px',
+  },
+  
+  instagramText: {
+    fontSize: '22px',
+    color: '#f1f5f9',
+    fontWeight: '500',
+  },
+  
+  instagramHandle: {
+    color: '#E4405F', // Cor roxa do Instagram
+    fontWeight: '600',
+    letterSpacing: '0.3px',
   },
 };
 

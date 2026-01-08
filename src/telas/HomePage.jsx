@@ -140,7 +140,7 @@ const Home = () => {
               <p>Smartphones</p>
             </Card>
 
-            <Card style={{ backgroundColor: '#ff0000' }} onClick={console.log('configurações')}>
+            <Card style={{ backgroundColor: '#ff0000' }} onClick={() =>window.location.href = "/settings"}>
               <DiAptana size={40} color="#fff" />
               <p>Configurações</p>
             </Card>

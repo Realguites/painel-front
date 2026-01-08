@@ -10,6 +10,7 @@ import Painel from './telas/Painel';
 import Dispositivos from './telas/Dispositivos';
 import SmartphoneManagement from "./telas/SmartphoneManagement";
 import Configuracoes from "./telas/Configuracoes";
+import Settings from "./telas/Settings";
 
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
         <Route path="/dispositivos" element={<Dispositivos/>} />
         <Route path="/smartphones" element={<SmartphoneManagement/>} />
         <Route path="/config" element={<Configuracoes/>} />
+        <Route path="/settings" element={<Settings/>} />
       </Routes>
     </BrowserRouter>
 
