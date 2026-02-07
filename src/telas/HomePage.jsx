@@ -135,6 +135,11 @@ const Home = () => {
               <p>Chamada</p>
             </Card>
 
+            <Card style={{ backgroundColor: 'purple' }} onClick={() => window.location.href = "/chamadaCivil"}>
+              <IoMdClipboard size={40} color="#fff" />
+              <p>Chamada Civil</p>
+            </Card>
+
             <Card style={{ backgroundColor: '#54a0ff' }} onClick={() => window.location.href = "/smartphones"}>
               <HiDeviceMobile size={40} color="#fff" />
               <p>Smartphones</p>

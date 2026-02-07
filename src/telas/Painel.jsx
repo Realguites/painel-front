@@ -1348,13 +1348,15 @@ function Painel() {
 
 // ================= STYLES =================
 
+// ================= STYLES =================
+
 const styles = {
   container: {
     minHeight: '100vh',
-    backgroundColor: '#0f172a',
-    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+    backgroundColor: '#f5f5f5',
+    background: 'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)',
     fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
-    color: '#f8fafc',
+    color: '#333333',
     display: 'flex',
     flexDirection: 'column',
   },
@@ -1410,7 +1412,7 @@ const styles = {
   },
   settingsText: {
     fontSize: '12px',
-    color: '#94a3b8',
+    color: '#666666',
     fontWeight: '600',
   },
   content: {
@@ -1430,10 +1432,10 @@ const styles = {
     gap: '24px',
   },
   ticketCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#424242',
     borderRadius: '20px',
     padding: '32px',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
     border: '1px solid rgba(255, 255, 255, 0.1)',
     animation: 'fadeIn 0.6s ease-out',
   },
@@ -1448,7 +1450,7 @@ const styles = {
   cardTitle: {
     fontSize: '28px',
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: '#ffffff',
     margin: 0,
     letterSpacing: '0.5px',
   },
@@ -1560,7 +1562,7 @@ const styles = {
   },
   userCard: {
     flex: 1,
-    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    backgroundColor: 'rgba(66, 66, 66, 0.8)',
     borderRadius: '16px',
     padding: '24px',
     border: '1px solid rgba(59, 130, 246, 0.3)',
@@ -1704,12 +1706,11 @@ const styles = {
     color: '#f1f5f9',
     fontWeight: '600',
   },
-  // HISTÓRICO DE ULTIMAS FICHAS - NOVO LAYOUT COMPACTO
   recentTicketsCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#424242',
     borderRadius: '20px',
     padding: '20px',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
     border: '1px solid rgba(255, 255, 255, 0.1)',
     animation: 'fadeIn 0.6s ease-out',
     height: 'auto',
@@ -1727,7 +1728,7 @@ const styles = {
   recentTicketsTitle: {
     fontSize: '18px',
     fontWeight: '600',
-    color: '#f1f5f9',
+    color: '#ffffff',
     margin: 0,
     display: 'flex',
     alignItems: 'center',
@@ -1871,10 +1872,10 @@ const styles = {
     fontStyle: 'italic',
   },
   mediaSection: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#424242',
     borderRadius: '20px',
     padding: '24px',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
     border: '1px solid rgba(255, 255, 255, 0.1)',
     animation: 'fadeIn 0.6s ease-out 0.2s both',
   },
@@ -1889,7 +1890,7 @@ const styles = {
   mediaTitle: {
     fontSize: '20px',
     fontWeight: '600',
-    color: '#f1f5f9',
+    color: '#ffffff',
     margin: 0,
   },
   mediaCounter: {
@@ -1910,11 +1911,11 @@ const styles = {
     gap: '24px',
   },
   weatherCardLarge: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#E08A34',
     borderRadius: '20px',
     padding: '30px',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
     animation: 'fadeIn 0.6s ease-out 0.3s both',
   },
   weatherHeaderLarge: {
@@ -1926,14 +1927,14 @@ const styles = {
   widgetTitleLarge: {
     fontSize: '22px',
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: '#333333',
     margin: 0,
     letterSpacing: '0.5px',
   },
   weatherLocationLarge: {
     fontSize: '16px',
-    color: '#94a3b8',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    color: '#666666',
+    backgroundColor: '#FFD580',
     padding: '6px 14px',
     borderRadius: '12px',
     fontWeight: '600',
@@ -1960,11 +1961,11 @@ const styles = {
   tempValueLarge: {
     fontSize: '52px',
     fontWeight: '800',
-    color: '#f1f5f9',
+    color: '#333333',
   },
   weatherDescLarge: {
     fontSize: '20px',
-    color: '#94a3b8',
+    color: '#666666',
     textTransform: 'capitalize',
     fontWeight: '500',
   },
@@ -1973,7 +1974,7 @@ const styles = {
     gridTemplateColumns: 'repeat(3, 1fr)',
     gap: '15px',
     padding: '20px',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
     borderRadius: '12px',
   },
   detailItemLarge: {
@@ -1984,20 +1985,20 @@ const styles = {
   },
   detailLabelLarge: {
     fontSize: '14px',
-    color: '#94a3b8',
+    color: '#666666',
     fontWeight: '600',
   },
   detailValueLarge: {
     fontSize: '22px',
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: '#333333',
   },
   timeCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#E08A34', // Cor padrão (será sobrescrita dinamicamente)
     borderRadius: '20px',
     padding: '32px',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
     textAlign: 'center',
     animation: 'fadeIn 0.6s ease-out 0.4s both',
   },
@@ -2007,7 +2008,7 @@ const styles = {
   dateText: {
     fontSize: '24px',
     fontWeight: '600',
-    color: '#f1f5f9',
+    color: '#ffffff',
     margin: 0,
   },
   timeDisplay: {
@@ -2020,32 +2021,38 @@ const styles = {
   timeText: {
     fontSize: '64px',
     fontWeight: '800',
-    color: '#3b82f6',
+    color: '#ffffff',
     fontFamily: "'Courier New', monospace",
     letterSpacing: '2px',
+    textShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
   },
   secondText: {
     fontSize: '32px',
     fontWeight: '600',
-    color: '#94a3b8',
+    color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: "'Courier New', monospace",
   },
   weekDay: {
     fontSize: '20px',
     fontWeight: '600',
-    color: '#f1f5f9',
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    color: '#ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     padding: '8px 16px',
     borderRadius: '12px',
     display: 'inline-block',
   },
   logoCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#ffffff',
     borderRadius: '20px',
     padding: '24px',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+    border: '1px solid rgba(0, 0, 0, 0.1)',
     animation: 'fadeIn 0.6s ease-out 0.5s both',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '200px',
   },
   logoHeader: {
     display: 'flex',
@@ -2058,7 +2065,7 @@ const styles = {
   logoTitle: {
     fontSize: '20px',
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: '#333333',
     margin: 0,
     letterSpacing: '0.5px',
   },
@@ -2122,7 +2129,7 @@ const styles = {
   },
   versionValue: {
     fontSize: '16px',
-    color: '#f1f5f9',
+    color: '#333333',
     fontWeight: '700',
     fontFamily: "'Courier New', monospace",
   },
@@ -2159,9 +2166,9 @@ const styles = {
     fontWeight: '600',
   },
   footer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     padding: '16px 24px',
-    borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+    borderTop: '1px solid rgba(0, 0, 0, 0.1)',
   },
   footerContent: {
     maxWidth: '1800px',
@@ -2171,32 +2178,8 @@ const styles = {
   },
   footerText: {
     fontSize: '14px',
-    color: '#94a3b8',
+    color: '#666666',
   },
-  logoCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: '20px',
-    padding: '12px',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    animation: 'fadeIn 0.6s ease-out 0.5s both',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '200px',
-  },
-  
-  logoContent: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '16px',
-    width: '100%',
-  },
-
-  
   logoMessage: {
     fontSize: '18px',
     color: 'gray',
@@ -2206,7 +2189,6 @@ const styles = {
     marginTop: '8px',
     letterSpacing: '0.5px',
   },
-  
   socialContainer: {
     display: 'flex',
     alignItems: 'center',
@@ -2217,20 +2199,17 @@ const styles = {
     borderRadius: '12px',
     width: '100%',
   },
-  
   instagramIcon: {
     width: '32px',
     height: '32px',
   },
-  
   instagramText: {
     fontSize: '22px',
-    color: '#f1f5f9',
+    color: '#333333',
     fontWeight: '500',
   },
-  
   instagramHandle: {
-    color: '#E4405F', // Cor roxa do Instagram
+    color: '#E4405F',
     fontWeight: '600',
     letterSpacing: '0.3px',
   },

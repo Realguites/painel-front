@@ -11,6 +11,7 @@ import Dispositivos from './telas/Dispositivos';
 import SmartphoneManagement from "./telas/SmartphoneManagement";
 import Configuracoes from "./telas/Configuracoes";
 import Settings from "./telas/Settings";
+import ChamadaCivil from "./telas/ChamadaRegistroCivil";
 
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
         <Route path="/smartphones" element={<SmartphoneManagement/>} />
         <Route path="/config" element={<Configuracoes/>} />
         <Route path="/settings" element={<Settings/>} />
+        <Route path="/chamadaCivil" element={<ChamadaCivil/>} />
       </Routes>
     </BrowserRouter>
 

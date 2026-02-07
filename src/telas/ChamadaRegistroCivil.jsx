@@ -4,25 +4,30 @@ import config from '../config/config';
 import axios from 'axios';
 
 function CallNextTicket() {
+  // Estados atualizados para os 4 tipos de chamada
   const [tickets, setTickets] = useState({
-    NORMAL: null,
-    PRIORITARIO: null,
-    ATPVE: null
+    CIVIL_NORMAL: null,
+    CIVIL_PRIORITARIO: null,
+    RTD_NORMAL: null,
+    RTD_PRIORITARIO: null
   });
   const [lastCalledTickets, setLastCalledTickets] = useState({
-    NORMAL: null,
-    PRIORITARIO: null,
-    ATPVE: null
+    CIVIL_NORMAL: null,
+    CIVIL_PRIORITARIO: null,
+    RTD_NORMAL: null,
+    RTD_PRIORITARIO: null
   });
   const [lastCalledIds, setLastCalledIds] = useState({
-    NORMAL: null,
-    PRIORITARIO: null,
-    ATPVE: null
+    CIVIL_NORMAL: null,
+    CIVIL_PRIORITARIO: null,
+    RTD_NORMAL: null,
+    RTD_PRIORITARIO: null
   });
   const [ticketCounts, setTicketCounts] = useState({
-    NORMAL: 0,
-    PRIORITARIO: 0,
-    ATPVE: 0
+    CIVIL_NORMAL: 0,
+    CIVIL_PRIORITARIO: 0,
+    RTD_NORMAL: 0,
+    RTD_PRIORITARIO: 0
   });
   const [guiche, setGuiche] = useState('Nenhum Guichê definido!');
   const [nextTickets, setNextTickets] = useState([]);
@@ -33,15 +38,19 @@ function CallNextTicket() {
   const [highlightedTicket, setHighlightedTicket] = useState(null);
   const [activePriority, setActivePriority] = useState(null);
   const [loadingStates, setLoadingStates] = useState({
-    NORMAL: false,
-    PRIORITARIO: false,
-    ATPVE: false,
+    CIVIL_NORMAL: false,
+    CIVIL_PRIORITARIO: false,
+    RTD_NORMAL: false,
+    RTD_PRIORITARIO: false,
     REPEAT: false
   });
+  
+  // Filtros atualizados para os novos tipos
   const [activeFilters, setActiveFilters] = useState({
-    NORMAL: false,
-    PRIORITARIO: false,
-    ATPVE: false,
+    CIVIL_NORMAL: false,
+    CIVIL_PRIORITARIO: false,
+    RTD_NORMAL: false,
+    RTD_PRIORITARIO: false,
     ALL: true
   });
 
@@ -213,26 +222,16 @@ function CallNextTicket() {
     }
     
     // Fallback: verificar qual ticket está preenchido (último chamado)
-    if (tickets.NORMAL && lastCalledIds.NORMAL) {
-      return {
-        priority: 'NORMAL',
-        id: lastCalledIds.NORMAL,
-        ticket: tickets.NORMAL
-      };
-    }
-    if (tickets.PRIORITARIO && lastCalledIds.PRIORITARIO) {
-      return {
-        priority: 'PRIORITARIO',
-        id: lastCalledIds.PRIORITARIO,
-        ticket: tickets.PRIORITARIO
-      };
-    }
-    if (tickets.ATPVE && lastCalledIds.ATPVE) {
-      return {
-        priority: 'ATPVE',
-        id: lastCalledIds.ATPVE,
-        ticket: tickets.ATPVE
-      };
+    const priorityTypes = ['CIVIL_NORMAL', 'CIVIL_PRIORITARIO', 'RTD_NORMAL', 'RTD_PRIORITARIO'];
+    
+    for (const type of priorityTypes) {
+      if (tickets[type] && lastCalledIds[type]) {
+        return {
+          priority: type,
+          id: lastCalledIds[type],
+          ticket: tickets[type]
+        };
+      }
     }
     
     return null;
@@ -240,10 +239,25 @@ function CallNextTicket() {
 
   const callTicketByPriority = async (priorityType) => {
     const token = localStorage.getItem("jwtToken");
+    
+    // Mapeamento dos endpoints
+    const endpointMap = {
+      'CIVIL_NORMAL': 'civilnormal',
+      'CIVIL_PRIORITARIO': 'civilprioritario',
+      'RTD_NORMAL': 'rtdnormal',
+      'RTD_PRIORITARIO': 'rtdprioritario'
+    };
+
+    const endpoint = endpointMap[priorityType];
+    
+    if (!endpoint) {
+      console.error(`Endpoint não encontrado para ${priorityType}`);
+      return false;
+    }
 
     try {
       const response = await axios.get(
-        `${API_BASE_URL}/fichas/chamar/${priorityType}`, 
+        `${API_BASE_URL}/fichas/chamar/${endpoint}`, 
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -345,10 +359,25 @@ function CallNextTicket() {
 
   const fetchLastCalledTicket = async (priorityType) => {
     const token = localStorage.getItem("jwtToken");
+    
+    // Mapeamento para endpoints de última chamada
+    const endpointMap = {
+      'CIVIL_NORMAL': 'civilnormal',
+      'CIVIL_PRIORITARIO': 'civilprioritario',
+      'RTD_NORMAL': 'rtdnormal',
+      'RTD_PRIORITARIO': 'rtdprioritario'
+    };
+
+    const endpoint = endpointMap[priorityType];
+    
+    if (!endpoint) {
+      console.error(`Endpoint não encontrado para ${priorityType}`);
+      return;
+    }
 
     try {
       const response = await axios.get(
-        `${API_BASE_URL}/fichas/ultimaChamada/${priorityType}`, 
+        `${API_BASE_URL}/fichas/ultimaChamada/${endpoint}`, 
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -385,33 +414,36 @@ function CallNextTicket() {
 
   const getPriorityPrefix = (priority) => {
     const prefixes = {
-      'NORMAL': 'N',
-      'PRIORITARIO': 'P',
-      'ATPVE': 'A'
+      'CIVIL_NORMAL': 'CN',
+      'CIVIL_PRIORITARIO': 'CP',
+      'RTD_NORMAL': 'RN',
+      'RTD_PRIORITARIO': 'RP'
     };
     return prefixes[priority] || '';
   };
 
   const getPriorityLabel = (priority) => {
     const labels = {
-      'NORMAL': 'Normal',
-      'PRIORITARIO': 'Prioritário',
-      'ATPVE': 'ATPV-e'
+      'CIVIL_NORMAL': 'Civil Normal',
+      'CIVIL_PRIORITARIO': 'Civil Prioritário',
+      'RTD_NORMAL': 'RTD Normal',
+      'RTD_PRIORITARIO': 'RTD Prioritário'
     };
     return labels[priority] || priority;
   };
 
   const getPriorityColor = (priority) => {
     const colors = {
-      'NORMAL': '#4CAF50',
-      'PRIORITARIO': '#FF5722',
-      'ATPVE': '#2196F3'
+      'CIVIL_NORMAL': '#4CAF50',      // Verde para Civil Normal
+      'CIVIL_PRIORITARIO': '#FF5722', // Laranja para Civil Prioritário
+      'RTD_NORMAL': '#2196F3',        // Azul para RTD Normal
+      'RTD_PRIORITARIO': '#9C27B0'    // Roxo para RTD Prioritário
     };
     return colors[priority] || '#757575';
   };
 
   const sortTickets = (tickets) => {
-    const priorityOrder = ['PRIORITARIO', 'ATPVE', 'NORMAL'];
+    const priorityOrder = ['CIVIL_PRIORITARIO', 'RTD_PRIORITARIO', 'CIVIL_NORMAL', 'RTD_NORMAL'];
     return [...tickets].sort((a, b) => {
       return priorityOrder.indexOf(a.identPrioridade) - priorityOrder.indexOf(b.identPrioridade);
     });
@@ -461,9 +493,10 @@ function CallNextTicket() {
 
   const updateTicketCounts = (ticketList) => {
     const counts = {
-      NORMAL: 0,
-      PRIORITARIO: 0,
-      ATPVE: 0
+      CIVIL_NORMAL: 0,
+      CIVIL_PRIORITARIO: 0,
+      RTD_NORMAL: 0,
+      RTD_PRIORITARIO: 0
     };
 
     ticketList.forEach(ticket => {
@@ -497,9 +530,10 @@ function CallNextTicket() {
   const handleFilterClick = (priorityType) => {
     // Quando clica em um tipo específico, desativa "ALL" e ativa apenas esse tipo
     const newFilters = {
-      NORMAL: false,
-      PRIORITARIO: false,
-      ATPVE: false,
+      CIVIL_NORMAL: false,
+      CIVIL_PRIORITARIO: false,
+      RTD_NORMAL: false,
+      RTD_PRIORITARIO: false,
       ALL: false, // Desativa "Mostrar Todos"
       [priorityType]: true // Ativa apenas o tipo clicado
     };
@@ -512,9 +546,10 @@ function CallNextTicket() {
   const handleShowAllClick = () => {
     // Ativar "Mostrar Todos" - mostra todas as fichas sem filtro
     const resetFilters = {
-      NORMAL: false,
-      PRIORITARIO: false,
-      ATPVE: false,
+      CIVIL_NORMAL: false,
+      CIVIL_PRIORITARIO: false,
+      RTD_NORMAL: false,
+      RTD_PRIORITARIO: false,
       ALL: true // Ativa "Mostrar Todos"
     };
     
@@ -562,14 +597,16 @@ function CallNextTicket() {
       localStorage.removeItem('lastCalledPriority');
       localStorage.removeItem('lastCalledId');
       setLastCalledTickets({
-        NORMAL: null,
-        PRIORITARIO: null,
-        ATPVE: null
+        CIVIL_NORMAL: null,
+        CIVIL_PRIORITARIO: null,
+        RTD_NORMAL: null,
+        RTD_PRIORITARIO: null
       });
       setLastCalledIds({
-        NORMAL: null,
-        PRIORITARIO: null,
-        ATPVE: null
+        CIVIL_NORMAL: null,
+        CIVIL_PRIORITARIO: null,
+        RTD_NORMAL: null,
+        RTD_PRIORITARIO: null
       });
       alert('Histórico limpo com sucesso!');
     }
@@ -676,7 +713,7 @@ function CallNextTicket() {
   useEffect(() => {
     fetchFichas();
     // Buscar últimas chamadas para cada prioridade
-    ['NORMAL', 'PRIORITARIO', 'ATPVE'].forEach(priority => {
+    ['CIVIL_NORMAL', 'CIVIL_PRIORITARIO', 'RTD_NORMAL', 'RTD_PRIORITARIO'].forEach(priority => {
       fetchLastCalledTicket(priority);
     });
   }, []);
@@ -686,6 +723,9 @@ function CallNextTicket() {
     console.log('useEffect - Aplicando filtros devido a mudança de estado');
     applyFilters(nextTickets, activeFilters);
   }, [activeFilters, nextTickets]);
+
+  // Array dos tipos de prioridade para renderizar os botões
+  const priorityTypes = ['CIVIL_NORMAL', 'CIVIL_PRIORITARIO', 'RTD_NORMAL', 'RTD_PRIORITARIO'];
 
   return (
     <div style={styles.container}>
@@ -750,8 +790,9 @@ function CallNextTicket() {
         </button>
       </div>
 
+      {/* Container único com os 4 botões lado a lado */}
       <div style={styles.ticketsDisplay}>
-        {['NORMAL', 'PRIORITARIO', 'ATPVE'].map(priority => {
+        {priorityTypes.map(priority => {
           const isLoading = loadingStates[priority];
           const isActive = activePriority === priority;
           const count = ticketCounts[priority];
@@ -860,7 +901,7 @@ function CallNextTicket() {
               {filteredTickets.length} de {nextTickets.length} na fila
             </span>
             <div style={styles.queueTypeCounts}>
-              {Object.entries(ticketCounts).map(([type, count]) => {
+              {priorityTypes.map(type => {
                 const isFilterActive = activeFilters[type];
                 const isOnlyActive = getActiveSpecificFilterCount() === 1 && isFilterActive;
                 const showAllMode = isShowAllMode();
@@ -902,7 +943,7 @@ function CallNextTicket() {
                     }
                   >
                     <span style={styles.queueTypePrefix}>{getPriorityPrefix(type)}:</span>
-                    <span style={styles.queueTypeNumber}>{count}</span>
+                    <span style={styles.queueTypeNumber}>{ticketCounts[type]}</span>
                     {isOnlyActive && (
                       <span style={styles.filterSoloIndicator}>👁️</span>
                     )}
@@ -1065,30 +1106,6 @@ const styles = {
     padding: '20px',
     fontFamily: '"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   },
-  guicheContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '10px',
-    margin: '30px 0',
-    padding: '15px 25px',
-    backgroundColor: '#ffffff',
-    borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    maxWidth: '400px',
-    marginLeft: 'auto',
-    marginRight: 'auto',
-  },
-  guicheLabel: {
-    fontSize: '18px',
-    color: '#6c757d',
-    fontWeight: '500',
-  },
-  guicheValue: {
-    fontSize: '22px',
-    color: '#495057',
-    fontWeight: '600',
-  },
   // Container para o botão de repetir
   repeatButtonContainer: {
     display: 'flex',
@@ -1170,10 +1187,10 @@ const styles = {
   },
   ticketsDisplay: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gridTemplateColumns: 'repeat(4, 1fr)',
     gap: '25px',
     marginBottom: '40px',
-    maxWidth: '1200px',
+    maxWidth: '1400px',
     marginLeft: 'auto',
     marginRight: 'auto',
   },
@@ -1187,6 +1204,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
+    minHeight: '350px',
   },
   ticketHeader: {
     width: '100%',
@@ -1228,6 +1246,10 @@ const styles = {
     textAlign: 'center',
     marginBottom: '25px',
     flexGrow: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    width: '100%',
   },
   ticketNumber: {
     fontSize: '72px',
@@ -1236,6 +1258,9 @@ const styles = {
     margin: '20px 0',
     transition: 'opacity 0.3s ease',
     fontFamily: '"Courier New", monospace',
+    wordBreak: 'break-word',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   ticketStatus: {
     fontSize: '14px',
@@ -1277,7 +1302,7 @@ const styles = {
     borderRadius: '16px',
     padding: '30px',
     boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-    maxWidth: '1200px',
+    maxWidth: '1400px',
     marginLeft: 'auto',
     marginRight: 'auto',
     position: 'relative',
