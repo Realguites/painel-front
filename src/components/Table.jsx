@@ -9,16 +9,18 @@ const Table = ({ columns, data, onEdit, onDelete, itemsPerPage = 10 }) => {
   const [filteredData, setFilteredData] = useState(data);
 
   useEffect(() => {
-    setFilteredData(
-      data.filter((row) =>
-        columns.some((column) =>
-          String(row[column.accessor])
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase())
+    if(data?.length > 0){
+      setFilteredData(
+        data.filter((row) =>
+          columns.some((column) =>
+            String(row[column.accessor])
+              .toLowerCase()
+              .includes(searchQuery.toLowerCase())
+          )
         )
-      )
-    );
-    setCurrentPage(1);
+      );
+      setCurrentPage(1);
+    }
   }, [searchQuery, data, columns]);
 
   const indexOfLastItem = currentPage * itemsPerPage;

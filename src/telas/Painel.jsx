@@ -8,6 +8,7 @@ import logo from '../others/logo.png';
 import { MdBorderColor } from 'react-icons/md';
 
 function Painel() {
+  // Estados atualizados incluindo os tipos antigos e novos
   const [lastCalledTicket, setLastCalledTicket] = useState({
     numero: ' - ',
     prioridade: 'NORMAL',
@@ -19,7 +20,11 @@ function Painel() {
   const [nextTicketsByType, setNextTicketsByType] = useState({
     NORMAL: [],
     PRIORITARIO: [],
-    ATPVE: []
+    ATPVE: [],
+    CIVILNORMAL: [],
+    CIVILPRIORITARIO: [],
+    RTDNORMAL: [],
+    RTDPRIORITARIO: []
   });
   
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
@@ -29,7 +34,11 @@ function Painel() {
   const [ticketCounts, setTicketCounts] = useState({
     NORMAL: 0,
     PRIORITARIO: 0,
-    ATPVE: 0
+    ATPVE: 0,
+    CIVILNORMAL: 0,
+    CIVILPRIORITARIO: 0,
+    RTDNORMAL: 0,
+    RTDPRIORITARIO: 0
   });
   
   const [soundPermission, setSoundPermission] = useState(true);
@@ -143,18 +152,67 @@ function Painel() {
     }
   };
 
-  const processUserPhoto = (foto) => {
-    if (!foto) return null;
+  // Função para buscar foto do usuário usando o endpoint correto
+const fetchUserPhoto = async (userId) => {
+  if (!userId) {
+    console.log('❌ ID do usuário não fornecido para buscar foto');
+    return null;
+  }
+  
+  try {
+    const token = localStorage.getItem("jwtToken");
+    if (!token) {
+      console.log('❌ Token não encontrado');
+      return null;
+    }
+    
+    console.log(`📸 Buscando foto do usuário ${userId}...`);
+    
+    const response = await axios.get(`${API_BASE_URL}/usuarios/${userId}/foto`, {
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'image/*'
+      },
+      responseType: 'blob'
+    });
+    
+    if (response.status === 200 && response.data) {
+      console.log(`✅ Foto do usuário ${userId} encontrada`);
+      const blob = response.data;
+      const url = URL.createObjectURL(blob);
+      return url;
+    }
+  } catch (error) {
+    console.error(`❌ Erro ao buscar foto do usuário ${userId}:`, error);
+    
+    // Se o erro for 404 (não encontrado), apenas log e continua
+    if (error.response && error.response.status === 404) {
+      console.log(`ℹ️ Usuário ${userId} não tem foto cadastrada`);
+    } else if (error.response && error.response.status === 401) {
+      console.log('🔐 Token expirado ou inválido');
+    }
+    
+    return null;
+  }
+  
+  return null;
+};
+
+  const processUserPhoto = async (fotoData, userId) => {
+    if (!fotoData && !userId) return null;
     
     try {
-      if (foto.startsWith('data:image')) {
-        return foto;
-      } else if (foto.startsWith('/') || foto.startsWith('http')) {
-        return foto;
-      } else {
-        // Assume que é base64
-        return `data:image/jpeg;base64,${foto}`;
+      // Se já tiver data URL, retorna ela
+      if (fotoData && fotoData.startsWith('data:image')) {
+        return fotoData;
       }
+      
+      // Se tiver userId, busca a foto do endpoint
+      if (userId) {
+        return await fetchUserPhoto(userId);
+      }
+      
+      return null;
     } catch (error) {
       console.error('Erro ao processar foto:', error);
       return null;
@@ -169,36 +227,43 @@ function Painel() {
     }
   };
 
-  const addToRecentTickets = (ticket) => {
+  const addToRecentTickets = async (ticket) => {
     if (!ticket || !ticket.idFicha) {
       console.log('Ticket inválido para histórico');
       return;
     }
-
+  
+    const usuarioQueChamou = ticket.usuarioQueChamou;
+    let usuarioFoto = null;
+    
+    // Busca a foto do usuário
+    if (usuarioQueChamou?.idUsuario) {
+      usuarioFoto = await fetchUserPhoto(usuarioQueChamou.idUsuario);
+    }
+  
     setRecentTickets(prev => {
       const exists = prev.some(t => t.idFicha === ticket.idFicha);
       if (exists) {
         console.log(`Ticket ${ticket.idFicha} já está no histórico, ignorando...`);
         return prev;
       }
-
-      const usuarioQueChamou = ticket.usuarioQueChamou;
-      const usuarioFoto = usuarioQueChamou?.foto ? processUserPhoto(usuarioQueChamou.foto) : null;
-
+  
+      const newTicket = {
+        idFicha: ticket.idFicha,
+        numero: ticket.numero,
+        prioridade: ticket.identPrioridade,
+        guiche: usuarioQueChamou?.guiche || '-',
+        usuario: usuarioQueChamou?.nome || 'Operador',
+        data: new Date().toISOString(),
+        usuarioFoto: usuarioFoto,
+        usuarioId: usuarioQueChamou?.idUsuario
+      };
+  
       const newRecent = [
-        {
-          idFicha: ticket.idFicha,
-          numero: ticket.numero,
-          prioridade: ticket.identPrioridade,
-          guiche: usuarioQueChamou?.guiche || '-',
-          usuario: usuarioQueChamou?.nome || 'Operador',
-          data: new Date().toISOString(),
-          usuarioFoto: usuarioFoto,
-          usuarioId: usuarioQueChamou?.idUsuario
-        },
+        newTicket,
         ...prev.slice(0, 4) // Mantém apenas 5 itens
       ];
-
+  
       saveRecentTickets(newRecent);
       return newRecent;
     });
@@ -229,12 +294,18 @@ function Painel() {
         return;
       }
 
+      // Busca a foto do usuário atual
+      let userPhoto = null;
+      if (decodedToken.idUsuario) {
+        userPhoto = await fetchUserPhoto(decodedToken.idUsuario);
+      }
+
       setCurrentUser({
         nome: decodedToken.nome || 'Operador',
         tipoUsuario: decodedToken.tipoUsuario || 'FUNCIONARIO',
         idUsuario: decodedToken.idUsuario,
         guiche: decodedToken.guiche || '-',
-        foto: null
+        foto: userPhoto
       });
       
     } catch (error) {
@@ -244,24 +315,13 @@ function Painel() {
     }
   };
 
-  const processCalledByUser = (usuarioData) => {
+  const processCalledByUser = async (usuarioData) => {
     if (!usuarioData) return null;
     
+    // Busca a foto usando o endpoint
     let fotoUrl = null;
-    
-    if (usuarioData.foto && typeof usuarioData.foto === 'string') {
-      try {
-        if (usuarioData.foto.startsWith('data:image')) {
-          fotoUrl = usuarioData.foto;
-        } else if (usuarioData.foto.startsWith('/') || usuarioData.foto.startsWith('http')) {
-          fotoUrl = usuarioData.foto;
-        } else {
-          fotoUrl = `data:image/jpeg;base64,${usuarioData.foto}`;
-        }
-      } catch (error) {
-        console.error('Erro ao processar foto do usuário:', error);
-        fotoUrl = null;
-      }
+    if (usuarioData.idUsuario) {
+      fotoUrl = await fetchUserPhoto(usuarioData.idUsuario);
     }
     
     return {
@@ -569,10 +629,8 @@ function Painel() {
       console.error('Erro no fallback beep:', error);
     }
   };
-  
 
   const testSound = async () => {
-  
     if (!soundPermission) {
       alert('🔇 Som desativado pelo usuário');
       return;
@@ -592,7 +650,6 @@ function Painel() {
       await playSelectedSound();
     } catch (error) {
       console.error('❌ Erro no teste de som:', error);
-     // alert('❌ Erro ao testar som: ' + error.message);
     }
   };
 
@@ -698,7 +755,11 @@ function Painel() {
     const prefixes = {
       'NORMAL': 'N',
       'PRIORITARIO': 'P',
-      'ATPVE': 'A'
+      'ATPVE': 'A',
+      'CIVILNORMAL': 'CN',
+      'CIVILPRIORITARIO': 'CP',
+      'RTDNORMAL': 'RN',
+      'RTDPRIORITARIO': 'RP'
     };
     return prefixes[priority] || 'N';
   };
@@ -707,22 +768,30 @@ function Painel() {
     const labels = {
       'NORMAL': 'Normal',
       'PRIORITARIO': 'Prioritário',
-      'ATPVE': 'ATPV-e'
+      'ATPVE': 'ATPV-e',
+      'CIVILNORMAL': 'Civil Normal',
+      'CIVILPRIORITARIO': 'Civil Prioritário',
+      'RTDNORMAL': 'RTD Normal',
+      'RTDPRIORITARIO': 'RTD Prioritário'
     };
     return labels[priority] || priority;
   };
 
   const getPriorityColor = (priority) => {
     const colors = {
-      'NORMAL': '#4CAF50',
-      'PRIORITARIO': '#FF5722',
-      'ATPVE': '#2196F3'
+      'NORMAL': '#4CAF50',      // Verde
+      'PRIORITARIO': '#FF5722', // Laranja
+      'ATPVE': '#2196F3',       // Azul
+      'CIVILNORMAL': '#4CAF50',      // Verde para Civil Normal
+      'CIVILPRIORITARIO': '#FF5722', // Laranja para Civil Prioritário
+      'RTDNORMAL': '#2196F3',        // Azul para RTD Normal
+      'RTDPRIORITARIO': '#9C27B0'    // Roxo para RTD Prioritário
     };
     return colors[priority] || '#4CAF50';
   };
 
   const sortTickets = (tickets) => {
-    const priorityOrder = ['PRIORITARIO', 'ATPVE', 'NORMAL'];
+    const priorityOrder = ['CIVILPRIORITARIO', 'RTDPRIORITARIO', 'PRIORITARIO', 'ATPVE', 'CIVILNORMAL', 'RTDNORMAL', 'NORMAL'];
     return [...tickets].sort((a, b) => {
       return priorityOrder.indexOf(a.identPrioridade) - priorityOrder.indexOf(b.identPrioridade);
     });
@@ -732,7 +801,11 @@ function Painel() {
     const organized = {
       NORMAL: [],
       PRIORITARIO: [],
-      ATPVE: []
+      ATPVE: [],
+      CIVILNORMAL: [],
+      CIVILPRIORITARIO: [],
+      RTDNORMAL: [],
+      RTDPRIORITARIO: []
     };
 
     tickets.forEach(ticket => {
@@ -770,7 +843,7 @@ function Painel() {
       
       const ticketData = response.data;
       const calledBy = ticketData.usuarioQueChamou ? 
-        processCalledByUser(ticketData.usuarioQueChamou) : null;
+        await processCalledByUser(ticketData.usuarioQueChamou) : null;
       
       setLastCalledTicket({
         numero: ticketData.numero || ' - ',
@@ -802,7 +875,11 @@ function Painel() {
       setTicketCounts({
         NORMAL: organized.NORMAL.length,
         PRIORITARIO: organized.PRIORITARIO.length,
-        ATPVE: organized.ATPVE.length
+        ATPVE: organized.ATPVE.length,
+        CIVILNORMAL: organized.CIVILNORMAL.length,
+        CIVILPRIORITARIO: organized.CIVILPRIORITARIO.length,
+        RTDNORMAL: organized.RTDNORMAL.length,
+        RTDPRIORITARIO: organized.RTDPRIORITARIO.length
       });
     } catch (error) {
       console.error('Erro ao buscar fichas:', error);
@@ -905,7 +982,6 @@ function Painel() {
     };
   }, []);
 
-
   useEffect(() => {
     fetchCurrentUser();
   }, []);
@@ -940,15 +1016,31 @@ function Painel() {
   useEffect(() => {
     let eventSource;
     let reconnectTimeout;
-
+  
     const connectToSSE = () => {
       const token = localStorage.getItem("jwtToken");
-      if (!token) return;
-
-      eventSource = new EventSource(`${API_BASE_URL}/fichas/stream?token=${token}`);
-
+      if (!token) {
+        console.error('❌ Token não encontrado para SSE');
+        return;
+      }
+  
+      // Cria a URL sem o token na query string
+      const url = `${API_BASE_URL}/fichas/stream`;
+      
+      console.log('🔌 Conectando ao SSE com URL:', url);
+      
+      // Cria o EventSource com headers personalizados
+      eventSource = new EventSource(url);
+  
+      // Configura um listener para a abertura da conexão
+      eventSource.onopen = () => {
+        console.log('✅ Conexão SSE aberta com sucesso');
+        setReconnectAttempts(0); // Reseta tentativas de reconexão
+      };
+  
       eventSource.addEventListener('newFicha', (event) => {
         const newFicha = JSON.parse(event.data);
+        console.log('📨 Nova ficha recebida:', newFicha.numero, newFicha.identPrioridade);
         
         setNextTicketsByType(prev => {
           const updated = { ...prev };
@@ -959,21 +1051,39 @@ function Painel() {
           }
           return updated;
         });
-
+  
         setTicketCounts(prev => ({
           ...prev,
           [newFicha.identPrioridade]: prev[newFicha.identPrioridade] + 1
         }));
       });
-
-      eventSource.addEventListener('fichaChamada', (event) => {
+  
+      eventSource.addEventListener('fichaChamada', async (event) => {
         console.log('📨 Evento SSE: fichaChamada recebido');
         const calledTicket = JSON.parse(event.data);
         console.log('🎫 Ficha chamada:', calledTicket.numero, calledTicket.identPrioridade);
         
-        const calledBy = calledTicket.usuarioQueChamou ? 
-          processCalledByUser(calledTicket.usuarioQueChamou) : null;
-
+        // Processa o usuário que chamou (incluindo a foto)
+        let calledBy = null;
+        let userPhoto = null;
+        
+        if (calledTicket.usuarioQueChamou) {
+          // Busca a foto usando o endpoint
+          if (calledTicket.usuarioQueChamou.idUsuario) {
+            userPhoto = await fetchUserPhoto(calledTicket.usuarioQueChamou.idUsuario);
+          }
+          
+          calledBy = {
+            nome: calledTicket.usuarioQueChamou.nome || 'Operador',
+            tipoUsuario: calledTicket.usuarioQueChamou.tipoUsuario || 'FUNCIONARIO',
+            idUsuario: calledTicket.usuarioQueChamou.idUsuario,
+            guiche: calledTicket.usuarioQueChamou.guiche || '-',
+            email: calledTicket.usuarioQueChamou.email || '',
+            foto: userPhoto
+          };
+        }
+  
+        // Cria o ticketInfo com a foto incluída
         const ticketInfo = {
           numero: calledTicket.numero,
           prioridade: calledTicket.identPrioridade,
@@ -981,9 +1091,11 @@ function Painel() {
           tipo: calledTicket.identPrioridade,
           usuarioQueChamou: calledBy
         };
-
+  
+        console.log('📸 TicketInfo com foto:', ticketInfo.usuarioQueChamou?.foto ? 'Sim' : 'Não');
+  
         setLastCalledTicket(ticketInfo);
-
+  
         setNextTicketsByType(prev => {
           const updated = { ...prev };
           if (updated[calledTicket.identPrioridade]) {
@@ -993,38 +1105,59 @@ function Painel() {
           }
           return updated;
         });
-
+  
         setTicketCounts(prev => ({
           ...prev,
           [calledTicket.identPrioridade]: Math.max(0, prev[calledTicket.identPrioridade] - 1)
         }));
-
+  
         // ADICIONAR AO HISTÓRICO
         addToRecentTickets(calledTicket);
-
+  
         // Chama a notificação
         console.log('🔔 Chamando playNotificationSound...');
         playNotificationSound(ticketInfo);
       });
-
+  
       eventSource.onerror = (error) => {
         console.error('❌ Erro SSE:', error);
+        
+        // Verifica se o eventSource ainda está aberto
+        if (eventSource.readyState === EventSource.CLOSED) {
+          console.log('🔒 Conexão SSE fechada');
+        }
+        
         eventSource.close();
         
-        setReconnectAttempts(prev => prev + 1);
-        reconnectTimeout = setTimeout(() => {
-          console.log('🔄 Reconectando SSE...');
-          connectToSSE();
-        }, 1000);
+        // Aumenta contador de tentativas e tenta reconectar
+        setReconnectAttempts(prev => {
+          const newAttempts = prev + 1;
+          console.log(`🔄 Tentativa de reconexão ${newAttempts}...`);
+          
+          // Limpa timeout anterior se existir
+          if (reconnectTimeout) clearTimeout(reconnectTimeout);
+          
+          // Exponencial backoff
+          const delay = Math.min(1000 * Math.pow(2, newAttempts), 30000);
+          reconnectTimeout = setTimeout(() => {
+            console.log(`🔌 Reconectando SSE após ${delay}ms...`);
+            connectToSSE();
+          }, delay);
+          
+          return newAttempts;
+        });
       };
     };
-
+  
     if (!userLoading && !settingsLoading) {
       connectToSSE();
     }
-
+  
     return () => {
-      if (eventSource) eventSource.close();
+      if (eventSource) {
+        eventSource.close();
+        console.log('🔌 Conexão SSE finalizada');
+      }
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
     };
   }, [soundPermission, userLoading, settingsLoading, currentUser, systemSettings]);
@@ -1037,7 +1170,7 @@ function Painel() {
         <div style={styles.mainSection}>
           <div style={styles.ticketCard}>
             <div style={styles.cardHeader}>
-              <h2 style={styles.cardTitle}>ATENDIMENTO ATUAL</h2>
+              <h2 style={styles.cardTitle}>ATENDIMENTO ATUAL</h2>              
             </div>
             
             <div style={styles.ticketAndUserContainer}>
@@ -1075,6 +1208,7 @@ function Painel() {
                               const placeholder = e.target.nextElementSibling;
                               if (placeholder) placeholder.style.display = 'flex';
                             }}
+                            onLoad={() => console.log('✅ Foto do operador carregada')}
                           />
                         ) : null}
                         <div style={{
@@ -1106,7 +1240,7 @@ function Painel() {
             </div>
           </div>
 
-          {/* HISTÓRICO DE ULTIMAS FICHAS CHAMADAS - NOVO LAYOUT */}
+          {/* HISTÓRICO DE ULTIMAS FICHAS CHAMADAS */}
           <div style={styles.recentTicketsCard}>
             <div style={styles.recentTicketsHeader}>
               <h3 style={styles.recentTicketsTitle}>
@@ -1126,7 +1260,7 @@ function Painel() {
                   <div key={ticket.idFicha || index} style={styles.recentTicketItem}>
                     <div style={styles.recentTicketNumberCompact}>
                       <span style={styles.ticketNumCompact}>
-                      {getPriorityPrefix(ticket.prioridade)}{ticket.numero.toString().padStart(3, '0')}
+                        {getPriorityPrefix(ticket.prioridade)}{ticket.numero.toString().padStart(3, '0')}
                       </span>
                       <span style={styles.ticketDivider}>—</span>
                     </div>
@@ -1139,9 +1273,11 @@ function Painel() {
                             alt={ticket.usuario}
                             style={styles.recentUserPhotoCompact}
                             onError={(e) => {
+                              console.error('❌ Erro ao carregar foto do histórico:', ticket.usuario);
                               e.target.style.display = 'none';
                               e.target.nextElementSibling.style.display = 'flex';
                             }}
+                            onLoad={() => console.log('✅ Foto do histórico carregada:', ticket.usuario)}
                           />
                         ) : null}
                         <div style={{
@@ -1159,8 +1295,6 @@ function Painel() {
                         {formatRelativeTime(ticket.data)}
                       </div>
                     </div>
-                    
-                    {/* REMOVIDO: Badge colorido do tipo */}
                   </div>
                 ))
               ) : (
@@ -1248,46 +1382,42 @@ function Painel() {
             </div>
           </div>
 
-          {/* 3. LOGO DO SISTEMA - DENTRO DA SIDEBAR */}
+          {/* 3. LOGO DO SISTEMA */}
           <div style={styles.logoCard}>
-  <div style={styles.logoContent}>
-    {/* Imagem da logo */}
-    <img 
-      src={logo} 
-      alt="Logo do Sistema"
-      style={styles.logoImage}
-    />
-    
-    {/* Mensagem abaixo da logo */}
-    <div style={styles.logoMessage}>
-      Visão em sistemas empresariais
-    </div>
-    
-    {/* Instagram e @trvision */}
-    <div style={styles.socialContainer}>
-      {/* Ícone do Instagram roxo */}
-      <svg style={styles.instagramIcon} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <defs>
-          <linearGradient id="instagramGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#f09433" />
-            <stop offset="25%" stopColor="#e6683c" />
-            <stop offset="50%" stopColor="#dc2743" />
-            <stop offset="75%" stopColor="#cc2366" />
-            <stop offset="100%" stopColor="#bc1888" />
-          </linearGradient>
-        </defs>
-        <path 
-          d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" 
-          fill="url(#instagramGradient)"
-        />
-      </svg>
-      
-      <div style={styles.instagramText}>
-        Siga <span style={styles.instagramHandle}>@trvision</span>
-      </div>
-    </div>
-  </div>
-</div>
+            <div style={styles.logoContent}>
+              <img 
+                src={logo} 
+                alt="Logo do Sistema"
+                style={styles.logoImage}
+              />
+              
+              <div style={styles.logoMessage}>
+                Visão em sistemas empresariais
+              </div>
+              
+              <div style={styles.socialContainer}>
+                <svg style={styles.instagramIcon} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                  <defs>
+                    <linearGradient id="instagramGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#f09433" />
+                      <stop offset="25%" stopColor="#e6683c" />
+                      <stop offset="50%" stopColor="#dc2743" />
+                      <stop offset="75%" stopColor="#cc2366" />
+                      <stop offset="100%" stopColor="#bc1888" />
+                    </linearGradient>
+                  </defs>
+                  <path 
+                    d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" 
+                    fill="url(#instagramGradient)"
+                  />
+                </svg>
+                
+                <div style={styles.instagramText}>
+                  Siga <span style={styles.instagramHandle}>@trvision</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1301,6 +1431,9 @@ function Painel() {
             Som Sistema: {systemSettings.somAtivado ? '✅' : '❌'} • 
             Voz: {systemSettings.vozAtivada ? '✅' : '❌'} •
             Volume: {systemSettings.volumeGeral}% •
+            Fila Civil: N({ticketCounts.CIVILNORMAL}) P({ticketCounts.CIVILPRIORITARIO}) • 
+            Fila RTD: N({ticketCounts.RTDNORMAL}) P({ticketCounts.RTDPRIORITARIO}) •
+            Outras: N({ticketCounts.NORMAL}) P({ticketCounts.PRIORITARIO}) A({ticketCounts.ATPVE}) •
             {lastCalledTicket.usuarioQueChamou ? 
               `Chamado por: ${lastCalledTicket.usuarioQueChamou.nome} (Guichê ${lastCalledTicket.usuarioQueChamou.guiche})` : 
               'Aguardando chamada'} •
@@ -1348,8 +1481,6 @@ function Painel() {
 
 // ================= STYLES =================
 
-// ================= STYLES =================
-
 const styles = {
   container: {
     minHeight: '100vh',
@@ -1359,61 +1490,6 @@ const styles = {
     color: '#333333',
     display: 'flex',
     flexDirection: 'column',
-  },
-  soundControl: {
-    position: 'absolute',
-    top: '80px',
-    right: '30px',
-    display: 'flex',
-    gap: '10px',
-    zIndex: 1000,
-    alignItems: 'center',
-  },
-  soundButton: {
-    padding: '8px 16px',
-    borderRadius: '20px',
-    border: 'none',
-    color: 'white',
-    fontWeight: '600',
-    cursor: 'pointer',
-    fontSize: '14px',
-    transition: 'all 0.3s ease',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-  },
-  testSoundButton: {
-    padding: '8px 16px',
-    borderRadius: '20px',
-    border: 'none',
-    backgroundColor: '#3b82f6',
-    color: 'white',
-    fontWeight: '600',
-    cursor: 'pointer',
-    fontSize: '14px',
-    transition: 'all 0.3s ease',
-    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
-  },
-  testVoiceButton: {
-    padding: '8px 16px',
-    borderRadius: '20px',
-    border: 'none',
-    backgroundColor: '#8b5cf6',
-    color: 'white',
-    fontWeight: '600',
-    cursor: 'pointer',
-    fontSize: '14px',
-    transition: 'all 0.3s ease',
-    boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
-  },
-  settingsInfo: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    padding: '6px 12px',
-    borderRadius: '10px',
-    marginLeft: '10px',
-  },
-  settingsText: {
-    fontSize: '12px',
-    color: '#666666',
-    fontWeight: '600',
   },
   content: {
     flex: 1,
@@ -1442,10 +1518,11 @@ const styles = {
   cardHeader: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: '24px',
     paddingBottom: '16px',
     borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+    flexWrap: 'wrap',
   },
   cardTitle: {
     fontSize: '28px',
@@ -1454,75 +1531,42 @@ const styles = {
     margin: 0,
     letterSpacing: '0.5px',
   },
-  userInfoContainer: {
-    display: 'flex',
-    alignItems: 'center',
+  countersContainer: {
+    marginTop: '10px',
+    flex: 1,
+    marginLeft: '20px',
   },
-  userLoading: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    color: '#94a3b8',
-    fontSize: '14px',
-  },
-  spinner: {
-    width: '20px',
-    height: '20px',
-    border: '2px solid #3b82f6',
-    borderTop: '2px solid transparent',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-  },
-  userBadge: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    padding: '8px 16px',
-    borderRadius: '12px',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-  },
-  userPhotoContainer: {
-    position: 'relative',
-  },
-  userPhoto: {
-    width: '48px',
-    height: '48px',
-    borderRadius: '50%',
-    objectFit: 'cover',
-    border: '2px solid #3b82f6',
-  },
-  userPhotoPlaceholder: {
-    width: '48px',
-    height: '48px',
-    borderRadius: '50%',
-    backgroundColor: '#3b82f6',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  userInitial: {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    color: '#ffffff',
-  },
-  userDetails: {
+  counterRow: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '4px',
+    gap: '12px',
   },
-  userName: {
-    fontSize: '16px',
-    fontWeight: '600',
-    color: '#f1f5f9',
+  counterGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    flexWrap: 'wrap',
   },
-  userRole: {
-    fontSize: '12px',
+  counterLabel: {
+    fontSize: '14px',
     color: '#94a3b8',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    padding: '2px 8px',
-    borderRadius: '10px',
-    alignSelf: 'flex-start',
+    fontWeight: '600',
+    minWidth: '160px',
+  },
+  counterItems: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+  },
+  counterBadge: {
+    fontSize: '12px',
+    fontWeight: '600',
+    color: 'white',
+    padding: '4px 10px',
+    borderRadius: '20px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
   },
   ticketAndUserContainer: {
     display: 'flex',
@@ -1591,18 +1635,20 @@ const styles = {
   },
   userCardPhoto: {
     position: 'relative',
-  },
-  userCardPhotoImage: {
     width: '200px',
     height: '200px',
+  },
+  userCardPhotoImage: {
+    width: '100%',
+    height: '100%',
     borderRadius: '50%',
     objectFit: 'cover',
     border: '4px solid #3b82f6',
     boxShadow: '0 8px 24px rgba(59, 130, 246, 0.4)',
   },
   userCardPhotoPlaceholder: {
-    width: '100px',
-    height: '100px',
+    width: '100%',
+    height: '100%',
     borderRadius: '50%',
     backgroundColor: '#3b82f6',
     display: 'flex',
@@ -1612,7 +1658,7 @@ const styles = {
     boxShadow: '0 8px 24px rgba(59, 130, 246, 0.4)',
   },
   userCardInitial: {
-    fontSize: '36px',
+    fontSize: '64px',
     fontWeight: 'bold',
     color: '#ffffff',
   },
@@ -1627,35 +1673,6 @@ const styles = {
     fontWeight: '700',
     color: '#f1f5f9',
     margin: 0,
-  },
-  userCardBadge: {
-    display: 'inline-block',
-  },
-  userCardRole: {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#3b82f6',
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    padding: '6px 16px',
-    borderRadius: '20px',
-    letterSpacing: '0.5px',
-  },
-  userCardMeta: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-    marginTop: '8px',
-  },
-  userCardMetaItem: {
-    fontSize: '14px',
-    color: '#94a3b8',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-  },
-  metaIcon: {
-    fontSize: '16px',
   },
   noCaller: {
     flex: 1,
@@ -1681,30 +1698,6 @@ const styles = {
     fontSize: '14px',
     color: '#64748b',
     fontStyle: 'italic',
-  },
-  infoBar: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px 24px',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: '12px',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-  },
-  infoItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  },
-  infoLabel: {
-    fontSize: '14px',
-    color: '#94a3b8',
-    fontWeight: '500',
-  },
-  infoValue: {
-    fontSize: '16px',
-    color: '#f1f5f9',
-    fontWeight: '600',
   },
   recentTicketsCard: {
     backgroundColor: '#424242',
@@ -1749,20 +1742,6 @@ const styles = {
     padding: '4px 8px',
     borderRadius: '10px',
   },
-  clearHistoryButton: {
-    padding: '4px 8px',
-    borderRadius: '6px',
-    border: 'none',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    color: '#ef4444',
-    fontWeight: '600',
-    cursor: 'pointer',
-    fontSize: '11px',
-    transition: 'all 0.3s ease',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-  },
   recentTicketsList: {
     display: 'flex',
     flexDirection: 'column',
@@ -1786,11 +1765,6 @@ const styles = {
     alignItems: 'center',
     gap: '8px',
     minWidth: '100px',
-  },
-  ticketPrefixCompact: {
-    fontSize: '14px',
-    fontWeight: '700',
-    color: '#94a3b8',
   },
   ticketNumCompact: {
     fontSize: '27px',
@@ -1870,40 +1844,6 @@ const styles = {
     fontSize: '12px',
     color: '#64748b',
     fontStyle: 'italic',
-  },
-  mediaSection: {
-    backgroundColor: '#424242',
-    borderRadius: '20px',
-    padding: '24px',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    animation: 'fadeIn 0.6s ease-out 0.2s both',
-  },
-  mediaHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px',
-    paddingBottom: '16px',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-  },
-  mediaTitle: {
-    fontSize: '20px',
-    fontWeight: '600',
-    color: '#ffffff',
-    margin: 0,
-  },
-  mediaCounter: {
-    fontSize: '14px',
-    color: '#94a3b8',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    padding: '4px 12px',
-    borderRadius: '12px',
-  },
-  carouselContainer: {
-    borderRadius: '12px',
-    overflow: 'hidden',
-    height: '200px',
   },
   sidebar: {
     display: 'flex',
@@ -1994,7 +1934,7 @@ const styles = {
     color: '#333333',
   },
   timeCard: {
-    backgroundColor: '#E08A34', // Cor padrão (será sobrescrita dinamicamente)
+    backgroundColor: '#E08A34',
     borderRadius: '20px',
     padding: '32px',
     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
@@ -2054,131 +1994,15 @@ const styles = {
     justifyContent: 'center',
     minHeight: '200px',
   },
-  logoHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px',
-    paddingBottom: '16px',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-  },
-  logoTitle: {
-    fontSize: '20px',
-    fontWeight: '700',
-    color: '#333333',
-    margin: 0,
-    letterSpacing: '0.5px',
-  },
   logoContent: {
     display: 'flex',
     flexDirection: 'column',
     gap: '20px',
   },
-  logoContainer: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: '20px',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: '12px',
-    minHeight: '120px',
-  },
-  logoPlaceholder: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-  },
-  logoText: {
-    fontSize: '32px',
-    fontWeight: '800',
-    color: '#3b82f6',
-    letterSpacing: '2px',
-  },
-  logoSubtext: {
-    fontSize: '30px',
-    color: '#94a3b8',
-    textAlign: 'center',
-  },
   logoImage: {
     maxWidth: '100%',
     maxHeight: '320px',
     objectFit: 'contain',
-  },
-  logoInfo: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '16px',
-    marginTop: '10px',
-  },
-  versionInfo: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: '12px',
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderRadius: '10px',
-    border: '1px solid rgba(59, 130, 246, 0.2)',
-  },
-  versionLabel: {
-    fontSize: '12px',
-    color: '#94a3b8',
-    fontWeight: '600',
-    marginBottom: '4px',
-  },
-  versionValue: {
-    fontSize: '16px',
-    color: '#333333',
-    fontWeight: '700',
-    fontFamily: "'Courier New', monospace",
-  },
-  statusInfo: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: '12px',
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    borderRadius: '10px',
-    border: '1px solid rgba(34, 197, 94, 0.2)',
-  },
-  statusLabel: {
-    fontSize: '12px',
-    color: '#94a3b8',
-    fontWeight: '600',
-    marginBottom: '4px',
-  },
-  statusIndicator: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  statusDot: {
-    width: '10px',
-    height: '10px',
-    backgroundColor: '#22c55e',
-    borderRadius: '50%',
-    animation: 'pulse 2s infinite',
-  },
-  statusText: {
-    fontSize: '14px',
-    color: '#22c55e',
-    fontWeight: '600',
-  },
-  footer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    padding: '16px 24px',
-    borderTop: '1px solid rgba(0, 0, 0, 0.1)',
-  },
-  footerContent: {
-    maxWidth: '1800px',
-    margin: '0 auto',
-    width: '100%',
-    textAlign: 'center',
-  },
-  footerText: {
-    fontSize: '14px',
-    color: '#666666',
   },
   logoMessage: {
     fontSize: '18px',
@@ -2212,6 +2036,21 @@ const styles = {
     color: '#E4405F',
     fontWeight: '600',
     letterSpacing: '0.3px',
+  },
+  footer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    padding: '16px 24px',
+    borderTop: '1px solid rgba(0, 0, 0, 0.1)',
+  },
+  footerContent: {
+    maxWidth: '1800px',
+    margin: '0 auto',
+    width: '100%',
+    textAlign: 'center',
+  },
+  footerText: {
+    fontSize: '14px',
+    color: '#666666',
   },
 };
 

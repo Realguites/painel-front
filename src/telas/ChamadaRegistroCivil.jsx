@@ -6,28 +6,28 @@ import axios from 'axios';
 function CallNextTicket() {
   // Estados atualizados para os 4 tipos de chamada
   const [tickets, setTickets] = useState({
-    CIVIL_NORMAL: null,
-    CIVIL_PRIORITARIO: null,
-    RTD_NORMAL: null,
-    RTD_PRIORITARIO: null
+    CIVILNORMAL: null,
+    CIVILPRIORITARIO: null,
+    RTDNORMAL: null,
+    RTDPRIORITARIO: null
   });
   const [lastCalledTickets, setLastCalledTickets] = useState({
-    CIVIL_NORMAL: null,
-    CIVIL_PRIORITARIO: null,
-    RTD_NORMAL: null,
-    RTD_PRIORITARIO: null
+    CIVILNORMAL: null,
+    CIVILPRIORITARIO: null,
+    RTDNORMAL: null,
+    RTDPRIORITARIO: null
   });
   const [lastCalledIds, setLastCalledIds] = useState({
-    CIVIL_NORMAL: null,
-    CIVIL_PRIORITARIO: null,
-    RTD_NORMAL: null,
-    RTD_PRIORITARIO: null
+    CIVILNORMAL: null,
+    CIVILPRIORITARIO: null,
+    RTDNORMAL: null,
+    RTDPRIORITARIO: null
   });
   const [ticketCounts, setTicketCounts] = useState({
-    CIVIL_NORMAL: 0,
-    CIVIL_PRIORITARIO: 0,
-    RTD_NORMAL: 0,
-    RTD_PRIORITARIO: 0
+    CIVILNORMAL: 0,
+    CIVILPRIORITARIO: 0,
+    RTDNORMAL: 0,
+    RTDPRIORITARIO: 0
   });
   const [guiche, setGuiche] = useState('Nenhum Guichê definido!');
   const [nextTickets, setNextTickets] = useState([]);
@@ -38,19 +38,19 @@ function CallNextTicket() {
   const [highlightedTicket, setHighlightedTicket] = useState(null);
   const [activePriority, setActivePriority] = useState(null);
   const [loadingStates, setLoadingStates] = useState({
-    CIVIL_NORMAL: false,
-    CIVIL_PRIORITARIO: false,
-    RTD_NORMAL: false,
-    RTD_PRIORITARIO: false,
+    CIVILNORMAL: false,
+    CIVILPRIORITARIO: false,
+    RTDNORMAL: false,
+    RTDPRIORITARIO: false,
     REPEAT: false
   });
   
   // Filtros atualizados para os novos tipos
   const [activeFilters, setActiveFilters] = useState({
-    CIVIL_NORMAL: false,
-    CIVIL_PRIORITARIO: false,
-    RTD_NORMAL: false,
-    RTD_PRIORITARIO: false,
+    CIVILNORMAL: false,
+    CIVILPRIORITARIO: false,
+    RTDNORMAL: false,
+    RTDPRIORITARIO: false,
     ALL: true
   });
 
@@ -222,7 +222,7 @@ function CallNextTicket() {
     }
     
     // Fallback: verificar qual ticket está preenchido (último chamado)
-    const priorityTypes = ['CIVIL_NORMAL', 'CIVIL_PRIORITARIO', 'RTD_NORMAL', 'RTD_PRIORITARIO'];
+    const priorityTypes = ['CIVILNORMAL', 'CIVILPRIORITARIO', 'RTDNORMAL', 'RTDPRIORITARIO'];
     
     for (const type of priorityTypes) {
       if (tickets[type] && lastCalledIds[type]) {
@@ -242,10 +242,10 @@ function CallNextTicket() {
     
     // Mapeamento dos endpoints
     const endpointMap = {
-      'CIVIL_NORMAL': 'civilnormal',
-      'CIVIL_PRIORITARIO': 'civilprioritario',
-      'RTD_NORMAL': 'rtdnormal',
-      'RTD_PRIORITARIO': 'rtdprioritario'
+      'CIVILNORMAL': 'civilnormal',
+      'CIVILPRIORITARIO': 'civilprioritario',
+      'RTDNORMAL': 'rtdnormal',
+      'RTDPRIORITARIO': 'rtdprioritario'
     };
 
     const endpoint = endpointMap[priorityType];
@@ -362,10 +362,10 @@ function CallNextTicket() {
     
     // Mapeamento para endpoints de última chamada
     const endpointMap = {
-      'CIVIL_NORMAL': 'civilnormal',
-      'CIVIL_PRIORITARIO': 'civilprioritario',
-      'RTD_NORMAL': 'rtdnormal',
-      'RTD_PRIORITARIO': 'rtdprioritario'
+      'CIVILNORMAL': 'civilnormal',
+      'CIVILPRIORITARIO': 'civilprioritario',
+      'RTDNORMAL': 'rtdnormal',
+      'RTDPRIORITARIO': 'rtdprioritario'
     };
 
     const endpoint = endpointMap[priorityType];
@@ -414,36 +414,36 @@ function CallNextTicket() {
 
   const getPriorityPrefix = (priority) => {
     const prefixes = {
-      'CIVIL_NORMAL': 'CN',
-      'CIVIL_PRIORITARIO': 'CP',
-      'RTD_NORMAL': 'RN',
-      'RTD_PRIORITARIO': 'RP'
+      'CIVILNORMAL': 'CN',
+      'CIVILPRIORITARIO': 'CP',
+      'RTDNORMAL': 'RN',
+      'RTDPRIORITARIO': 'RP'
     };
     return prefixes[priority] || '';
   };
 
   const getPriorityLabel = (priority) => {
     const labels = {
-      'CIVIL_NORMAL': 'Civil Normal',
-      'CIVIL_PRIORITARIO': 'Civil Prioritário',
-      'RTD_NORMAL': 'RTD Normal',
-      'RTD_PRIORITARIO': 'RTD Prioritário'
+      'CIVILNORMAL': 'Civil Normal',
+      'CIVILPRIORITARIO': 'Civil Prioritário',
+      'RTDNORMAL': 'RTD Normal',
+      'RTDPRIORITARIO': 'RTD Prioritário'
     };
     return labels[priority] || priority;
   };
 
   const getPriorityColor = (priority) => {
     const colors = {
-      'CIVIL_NORMAL': '#4CAF50',      // Verde para Civil Normal
-      'CIVIL_PRIORITARIO': '#FF5722', // Laranja para Civil Prioritário
-      'RTD_NORMAL': '#2196F3',        // Azul para RTD Normal
-      'RTD_PRIORITARIO': '#9C27B0'    // Roxo para RTD Prioritário
+      'CIVILNORMAL': '#4CAF50',      // Verde para Civil Normal
+      'CIVILPRIORITARIO': '#FF5722', // Laranja para Civil Prioritário
+      'RTDNORMAL': '#2196F3',        // Azul para RTD Normal
+      'RTDPRIORITARIO': '#9C27B0'    // Roxo para RTD Prioritário
     };
     return colors[priority] || '#757575';
   };
 
   const sortTickets = (tickets) => {
-    const priorityOrder = ['CIVIL_PRIORITARIO', 'RTD_PRIORITARIO', 'CIVIL_NORMAL', 'RTD_NORMAL'];
+    const priorityOrder = ['CIVILPRIORITARIO', 'RTDPRIORITARIO', 'CIVILNORMAL', 'RTDNORMAL'];
     return [...tickets].sort((a, b) => {
       return priorityOrder.indexOf(a.identPrioridade) - priorityOrder.indexOf(b.identPrioridade);
     });
@@ -493,10 +493,10 @@ function CallNextTicket() {
 
   const updateTicketCounts = (ticketList) => {
     const counts = {
-      CIVIL_NORMAL: 0,
-      CIVIL_PRIORITARIO: 0,
-      RTD_NORMAL: 0,
-      RTD_PRIORITARIO: 0
+      CIVILNORMAL: 0,
+      CIVILPRIORITARIO: 0,
+      RTDNORMAL: 0,
+      RTDPRIORITARIO: 0
     };
 
     ticketList.forEach(ticket => {
@@ -530,10 +530,10 @@ function CallNextTicket() {
   const handleFilterClick = (priorityType) => {
     // Quando clica em um tipo específico, desativa "ALL" e ativa apenas esse tipo
     const newFilters = {
-      CIVIL_NORMAL: false,
-      CIVIL_PRIORITARIO: false,
-      RTD_NORMAL: false,
-      RTD_PRIORITARIO: false,
+      CIVILNORMAL: false,
+      CIVILPRIORITARIO: false,
+      RTDNORMAL: false,
+      RTDPRIORITARIO: false,
       ALL: false, // Desativa "Mostrar Todos"
       [priorityType]: true // Ativa apenas o tipo clicado
     };
@@ -546,10 +546,10 @@ function CallNextTicket() {
   const handleShowAllClick = () => {
     // Ativar "Mostrar Todos" - mostra todas as fichas sem filtro
     const resetFilters = {
-      CIVIL_NORMAL: false,
-      CIVIL_PRIORITARIO: false,
-      RTD_NORMAL: false,
-      RTD_PRIORITARIO: false,
+      CIVILNORMAL: false,
+      CIVILPRIORITARIO: false,
+      RTDNORMAL: false,
+      RTDPRIORITARIO: false,
       ALL: true // Ativa "Mostrar Todos"
     };
     
@@ -597,16 +597,16 @@ function CallNextTicket() {
       localStorage.removeItem('lastCalledPriority');
       localStorage.removeItem('lastCalledId');
       setLastCalledTickets({
-        CIVIL_NORMAL: null,
-        CIVIL_PRIORITARIO: null,
-        RTD_NORMAL: null,
-        RTD_PRIORITARIO: null
+        CIVILNORMAL: null,
+        CIVILPRIORITARIO: null,
+        RTDNORMAL: null,
+        RTDPRIORITARIO: null
       });
       setLastCalledIds({
-        CIVIL_NORMAL: null,
-        CIVIL_PRIORITARIO: null,
-        RTD_NORMAL: null,
-        RTD_PRIORITARIO: null
+        CIVILNORMAL: null,
+        CIVILPRIORITARIO: null,
+        RTDNORMAL: null,
+        RTDPRIORITARIO: null
       });
       alert('Histórico limpo com sucesso!');
     }
@@ -713,7 +713,7 @@ function CallNextTicket() {
   useEffect(() => {
     fetchFichas();
     // Buscar últimas chamadas para cada prioridade
-    ['CIVIL_NORMAL', 'CIVIL_PRIORITARIO', 'RTD_NORMAL', 'RTD_PRIORITARIO'].forEach(priority => {
+    ['CIVILNORMAL', 'CIVILPRIORITARIO', 'RTDNORMAL', 'RTDPRIORITARIO'].forEach(priority => {
       fetchLastCalledTicket(priority);
     });
   }, []);
@@ -725,7 +725,7 @@ function CallNextTicket() {
   }, [activeFilters, nextTickets]);
 
   // Array dos tipos de prioridade para renderizar os botões
-  const priorityTypes = ['CIVIL_NORMAL', 'CIVIL_PRIORITARIO', 'RTD_NORMAL', 'RTD_PRIORITARIO'];
+  const priorityTypes = ['CIVILNORMAL', 'CIVILPRIORITARIO', 'RTDNORMAL', 'RTDPRIORITARIO'];
 
   return (
     <div style={styles.container}>
